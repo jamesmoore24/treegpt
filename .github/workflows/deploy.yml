@@ -44,21 +44,22 @@ jobs:
           remote_user: ${{ env.EC2_USER }}
           remote_key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: SSH into EC2 and unpack + restart server
+      - name: SSH into EC2 and unpack
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd $EC2_PATH
-            echo $EC2_PATH
-
-            # Unpack the tar
+            echo "Current directory before cd:"
+            pwd  # Print the current directory
+            echo "Changing to directory: $EC2_PATH"
+            cd $EC2_PATH || { echo "Failed to change directory to $EC2_PATH"; exit 1; }
+            echo "Current directory after cd:"
+            pwd  # Print the current directory again
             tar -xzf build.tar.gz
             rm build.tar.gz
 
-            # Rebuild PM2 process or start it if not running
             pm2 stop omniroute || true
             pm2 start npm --name omniroute -- run start
             pm2 save
