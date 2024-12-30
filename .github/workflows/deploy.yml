@@ -28,6 +28,9 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
+      - name: List files
+        run: ls -la
+
       - name: Compress build folder (optional step)
         run: tar -czf build.tar.gz .next node_modules package.json package-lock.json next.config.js postcss.config.js tailwind.config.js tsconfig.json
 
