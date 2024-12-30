@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 18
 
+      - name: Create .env file
+        run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
+
       - name: Install dependencies
         run: npm install
 
@@ -32,7 +35,7 @@ jobs:
         run: ls -la
 
       - name: Compress build folder (optional step)
-        run: tar -czf build.tar.gz .next node_modules package.json package-lock.json next.config.js postcss.config.js tailwind.config.ts tsconfig.json
+        run: tar -czf build.tar.gz .next node_modules package.json package-lock.json next.config.js postcss.config.js tailwind.config.ts tsconfig.json .env
 
       - name: Copy files to EC2 via rsync
         uses: burnett01/rsync-deployments@7.0.1
