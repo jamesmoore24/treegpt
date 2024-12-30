@@ -53,8 +53,8 @@ jobs:
           script: |
             echo "Current directory before cd:"
             pwd  # Print the current directory
-            echo "Changing to directory: $EC2_PATH"
-            cd $EC2_PATH || { echo "Failed to change directory to $EC2_PATH"; exit 1; }
+            echo "Changing to directory: ${{ env.EC2_PATH }}"
+            cd ${{ env.EC2_PATH }} || { echo "Failed to change directory to ${{ env.EC2_PATH }}"; exit 1; }
             echo "Current directory after cd:"
             pwd  # Print the current directory again
             tar -xzf build.tar.gz
