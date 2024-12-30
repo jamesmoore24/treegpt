@@ -31,6 +31,9 @@ jobs:
       - name: List files
         run: ls -la
 
+      - name: Compress build folder (optional step)
+        run: tar -czf build.tar.gz .next node_modules package.json package-lock.json next.config.js postcss.config.js tailwind.config.ts tsconfig.json
+
       - name: Copy files to EC2 via rsync
         uses: burnett01/rsync-deployments@7.0.1
         with:
