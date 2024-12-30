@@ -22,8 +22,37 @@ export default function Home() {
     setInput("");
 
     try {
-      const response = await sendChatMessage([...messages, userMessage]);
-      setMessages((prev) => [...prev, response]);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      });
+
+      if (!response.ok) throw new Error(response.statusText);
+
+      // Add an empty assistant message that we'll stream into
+      const assistantMessage: Message = { role: "assistant", content: "" };
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No reader available");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1];
+          const updatedMessage = {
+            ...lastMessage,
+            content: lastMessage.content + chunk,
+          };
+          return [...prev.slice(0, -1), updatedMessage];
+        });
+      }
     } catch (error) {
       console.error("Error:", error);
     }
