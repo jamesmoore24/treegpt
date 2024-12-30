@@ -37,7 +37,7 @@ jobs:
       - name: Copy files to EC2 via rsync
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -avzr --delete
+          switches: -avzr --delete --no-times
           remote_path: ${{ env.EC2_PATH }}
           remote_host: ${{ env.EC2_HOST }}
           remote_user: ${{ env.EC2_USER }}
