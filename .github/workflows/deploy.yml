@@ -38,6 +38,7 @@ jobs:
         uses: burnett01/rsync-deployments@7.0.1
         with:
           switches: -avzr --delete --no-times
+          path: build.tar.gz
           remote_path: ${{ env.EC2_PATH }}
           remote_host: ${{ env.EC2_HOST }}
           remote_user: ${{ env.EC2_USER }}
