@@ -42,9 +42,12 @@ jobs:
           remote_key: ${{ secrets.EC2_SSH_KEY }}
 
       - name: SSH into EC2 and unpack + restart server
-        uses: pearfamily/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          command: |
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
             cd $EC2_PATH
             echo $EC2_PATH
 
@@ -56,6 +59,3 @@ jobs:
             pm2 stop omniroute || true
             pm2 start npm --name omniroute -- run start
             pm2 save
-          host: ${{ env.EC2_HOST }}
-          user: ${{ env.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
