@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { Button } from "@/app/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OnboardingModal } from "@/components/OnboardingModal";
-import { ChatMessage } from "@/components/ChatMessage";
-import { ChatSidebar } from "@/components/ChatSidebar";
-import { Header } from "@/components/Header";
+import { OnboardingModal } from "@/app/components/OnboardingModal";
+import { ChatMessage } from "@/app/components/ChatMessage";
+import { ChatSidebar } from "@/app/components/ChatSidebar";
+import { Header } from "@/app/components/Header";
 import { SplitMessage, ChatHistory } from "@/types/chat";
+import { ChatWindow } from "@/app/components/ChatWindow";
 
 export default function Home() {
   const [step, setStep] = useState(1);
@@ -26,6 +27,7 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [responsesReady, setResponsesReady] = useState(false);
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {
@@ -44,6 +46,10 @@ export default function Home() {
     e.preventDefault();
     if (!input.trim()) return;
 
+    setResponsesReady(false);
+    setHoveredSide(null);
+    setSelectedSide(null);
+
     const userMessage = { content: input, isUser: true };
     const newMessages = {
       left: [...messages.left, userMessage],
@@ -51,52 +57,69 @@ export default function Home() {
     };
     setMessages(newMessages);
 
-    // Update chat history if we're in a chat
-    if (currentChatId) {
-      setChatHistory((prev) =>
-        prev.map((chat) =>
-          chat.id === currentChatId ? { ...chat, messages: newMessages } : chat
-        )
-      );
-    }
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      });
 
-    // Simulate model responses (replace with actual API calls)
-    const leftResponse = {
-      content: "This is a response from Model A",
-      isUser: false,
-      modelInfo: {
-        name: "GPT-4",
-        percentage: 75,
-      },
-    };
+      if (!response.ok) throw new Error(response.statusText);
 
-    const rightResponse = {
-      content: "This is a response from Model B",
-      isUser: false,
-      modelInfo: {
-        name: "Claude",
-        percentage: 25,
-      },
-    };
-
-    setTimeout(() => {
-      const updatedMessages = {
-        left: [...newMessages.left, leftResponse],
-        right: [...newMessages.right, rightResponse],
+      // Add empty assistant messages that we'll stream into
+      const emptyMessages = {
+        left: [
+          ...newMessages.left,
+          {
+            content: "",
+            isUser: false,
+            modelInfo: { name: "GPT-4", percentage: 75 },
+          },
+        ],
+        right: [
+          ...newMessages.right,
+          {
+            content: "",
+            isUser: false,
+            modelInfo: { name: "GPT-3.5", percentage: 25 },
+          },
+        ],
       };
-      setMessages(updatedMessages);
+      setMessages(emptyMessages);
 
-      // Update chat history
-      if (currentChatId) {
-        setChatHistory((prev) =>
-          prev.map((chat) =>
-            chat.id === currentChatId
-              ? { ...chat, messages: updatedMessages }
-              : chat
-          )
-        );
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No reader available");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        // Process each line separately as they contain different model responses
+        chunk
+          .split("\n")
+          .filter(Boolean)
+          .forEach((line) => {
+            const update = JSON.parse(line);
+            setMessages((prev) => {
+              const side = update.side;
+              const messages = [...prev[side]];
+              const lastMessage = messages[messages.length - 1];
+              messages[messages.length - 1] = {
+                ...lastMessage,
+                content: lastMessage.content + update.content,
+                modelInfo: update.modelInfo,
+              };
+              return { ...prev, [side]: messages };
+            });
+          });
       }
-    }, 1000);
+      setResponsesReady(true);
+    } catch (error) {
+      console.error("Error:", error);
+    }
 
     setInput("");
   };
@@ -136,6 +159,7 @@ export default function Home() {
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onNewChat={handleNewChat}
         queriesLeft={queriesLeft}
+        isSidebarOpen={isSidebarOpen}
       />
 
       <div className="flex-1 flex relative">
@@ -148,71 +172,21 @@ export default function Home() {
           currentChatId={currentChatId}
         />
 
-        <div
-          className={cn("flex-1 flex transition-all", isSidebarOpen && "ml-64")}
-        >
-          {/* Left Side */}
-          <div
-            className={cn(
-              "flex-1 p-4 relative overflow-auto",
-              hoveredSide === "left" && !selectedSide && "bg-primary/5"
-            )}
-            onMouseEnter={() => setHoveredSide("left")}
-            onMouseLeave={() => setHoveredSide(null)}
-            onClick={() => handleSideClick("left")}
-          >
-            <div className="space-y-4">
-              {messages.left.map((msg, idx) => (
-                <ChatMessage
-                  key={idx}
-                  message={msg}
-                  showModelInfo={!!selectedSide}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Right Side */}
-          <div
-            className={cn(
-              "flex-1 p-4 relative overflow-auto border-l",
-              hoveredSide === "right" && !selectedSide && "bg-primary/5"
-            )}
-            onMouseEnter={() => setHoveredSide("right")}
-            onMouseLeave={() => setHoveredSide(null)}
-            onClick={() => handleSideClick("right")}
-          >
-            <div className="space-y-4">
-              {messages.right.map((msg, idx) => (
-                <ChatMessage
-                  key={idx}
-                  message={msg}
-                  showModelInfo={!!selectedSide}
-                />
-              ))}
-            </div>
-          </div>
+        <div className={cn("flex-1 flex", isSidebarOpen && "ml-64")}>
+          <ChatWindow
+            messages={messages}
+            hoveredSide={hoveredSide}
+            selectedSide={selectedSide}
+            responsesReady={responsesReady}
+            isSidebarOpen={isSidebarOpen}
+            input={input}
+            onInputChange={(e) => setInput(e.target.value)}
+            onSubmit={handleSubmit}
+            onHover={setHoveredSide}
+            onClick={handleSideClick}
+          />
         </div>
       </div>
-
-      <form onSubmit={handleSubmit} className="p-4 border-t">
-        <div
-          className={cn(
-            "max-w-4xl mx-auto flex gap-2 transition-all",
-            isSidebarOpen && "ml-64"
-          )}
-        >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-1"
-          />
-          <Button type="submit">
-            <MessageSquare className="h-4 w-4" />
-          </Button>
-        </div>
-      </form>
     </main>
   );
 }
