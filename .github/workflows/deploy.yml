@@ -5,8 +5,8 @@ on:
     branches: ["main"]
 
 env:
-  EC2_PATH: "/var/www/omniroute" # Replace with your app's path on EC2
-  EC2_HOST: "3.84.34.77"
+  EC2_PATH: "/var/www/treegpt" # Replace with your app's path on EC2
+  EC2_HOST: "3.94.54.147"
   EC2_USER: "ec2-user"
 
 jobs:
