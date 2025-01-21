@@ -20,6 +20,7 @@ interface ChatWindowProps {
   onSubmit: (e: React.FormEvent) => void;
   onHover: (side: "left" | "right" | null) => void;
   onClick: (side: "left" | "right") => void;
+  isLoading: boolean;
 }
 
 export function ChatWindow({
@@ -33,6 +34,7 @@ export function ChatWindow({
   onSubmit,
   onHover,
   onClick,
+  isLoading,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -54,14 +56,8 @@ export function ChatWindow({
           <div
             className={cn(
               "flex-1 p-4 overflow-y-auto",
-              hoveredSide === "left" &&
-                !selectedSide &&
-                responsesReady &&
-                "bg-primary/5",
               responsesReady && !selectedSide && "cursor-pointer"
             )}
-            onMouseEnter={() => responsesReady && onHover("left")}
-            onMouseLeave={() => responsesReady && onHover(null)}
             onClick={() => responsesReady && onClick("left")}
           >
             <div className="space-y-4">
@@ -72,6 +68,15 @@ export function ChatWindow({
                   showModelInfo={!!selectedSide}
                 />
               ))}
+              {isLoading && (
+                <div className="flex justify-center">
+                  <div className="animate-bounce space-x-1">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full inline-block" />
+                    <span className="w-2 h-2 bg-gray-400 rounded-full inline-block animate-bounce [animation-delay:0.2s]" />
+                    <span className="w-2 h-2 bg-gray-400 rounded-full inline-block animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
@@ -82,8 +87,9 @@ export function ChatWindow({
                 onChange={onInputChange}
                 placeholder="Type your message..."
                 className="flex-1"
+                disabled={isLoading}
               />
-              <Button type="submit">
+              <Button type="submit" disabled={isLoading}>
                 <MessageSquare className="h-4 w-4" />
               </Button>
             </div>

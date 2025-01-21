@@ -11,12 +11,14 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   onNewChat: () => void;
   queriesLeft: number;
+  isSidebarOpen: boolean;
 }
 
 export function Header({
   onToggleSidebar,
   onNewChat,
   queriesLeft,
+  isSidebarOpen,
 }: HeaderProps) {
   return (
     <div className="h-12 border-b flex items-center px-4 justify-between relative">

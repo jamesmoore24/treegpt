@@ -63,5 +63,5 @@ jobs:
             tar -xzf build.tar.gz
             rm build.tar.gz
 
-            pm2 restart omniroute || pm2 start npm --name omniroute -- run start
+            pm2 restart treegpt || pm2 start npm --name treegpt -- run start
             pm2 save

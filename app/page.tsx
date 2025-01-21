@@ -28,6 +28,7 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [responsesReady, setResponsesReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {
@@ -44,8 +45,10 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
+    setIsLoading(true);
+    setInput("");
     setResponsesReady(false);
     setHoveredSide(null);
     setSelectedSide(null);
@@ -61,7 +64,14 @@ export default function Home() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({
+          messages: [
+            ...newMessages.left.map((msg) => ({
+              role: msg.isUser ? "user" : "assistant",
+              content: msg.content,
+            })),
+          ],
+        }),
       });
 
       if (!response.ok) throw new Error(response.statusText);
@@ -97,12 +107,17 @@ export default function Home() {
         if (done) break;
 
         const chunk = decoder.decode(value);
-        // Process each line separately as they contain different model responses
+        setIsLoading(false);
+
         chunk
           .split("\n")
           .filter(Boolean)
           .forEach((line) => {
-            const update = JSON.parse(line);
+            const update = JSON.parse(line) as {
+              side: "left" | "right";
+              content: string;
+              modelInfo: any;
+            };
             setMessages((prev) => {
               const side = update.side;
               const messages = [...prev[side]];
@@ -119,9 +134,8 @@ export default function Home() {
       setResponsesReady(true);
     } catch (error) {
       console.error("Error:", error);
+      setIsLoading(false);
     }
-
-    setInput("");
   };
 
   const handleSideClick = (side: "left" | "right") => {
@@ -184,6 +198,7 @@ export default function Home() {
             onSubmit={handleSubmit}
             onHover={setHoveredSide}
             onClick={handleSideClick}
+            isLoading={isLoading}
           />
         </div>
       </div>
