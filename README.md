@@ -1,4 +1,4 @@
-<img src="public/treeGPTLogo.png" alt="TreeGPT Logo" width="400"/>
+<img src="public/treeGPTLogoWhite.png" alt="TreeGPT Logo" width="400"/>
 
 # [TreeGPT](https://treegpt.app/)
 

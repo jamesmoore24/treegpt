@@ -42,6 +42,10 @@ export default function Home() {
     setSelectedSide(null);
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -128,37 +132,19 @@ export default function Home() {
   };
 
   return (
-    <main className="h-screen flex flex-col">
+    <div className="flex flex-col min-h-screen bg-background">
+      <Header />
       <OnboardingModal step={step} onStepChange={setStep} />
-
-      <Header
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        onNewChat={handleNewChat}
-        queriesLeft={queriesLeft}
-        isSidebarOpen={isSidebarOpen}
-      />
-
-      <div className="flex-1 flex relative">
-        <ChatSidebar
-          isOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          onNewChat={handleNewChat}
-          history={chatHistory}
-          onSelectChat={handleSelectChat}
-          currentChatId={currentChatId}
+      <main className="flex-1 flex">
+        <ChatWindow
+          messages={messages}
+          isSidebarOpen={isSidebarOpen}
+          input={input}
+          onInputChange={handleInputChange}
+          onSubmit={handleSubmit}
+          isLoading={isLoading}
         />
-
-        <div className={cn("flex-1 flex", isSidebarOpen && "ml-64")}>
-          <ChatWindow
-            messages={messages}
-            isSidebarOpen={isSidebarOpen}
-            input={input}
-            onInputChange={(e) => setInput(e.target.value)}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-          />
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
