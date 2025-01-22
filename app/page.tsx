@@ -9,15 +9,14 @@ import { OnboardingModal } from "@/app/components/OnboardingModal";
 import { ChatMessage } from "@/app/components/ChatMessage";
 import { ChatSidebar } from "@/app/components/ChatSidebar";
 import { Header } from "@/app/components/Header";
-import { SplitMessage, ChatHistory } from "@/types/chat";
+import { ChatHistory, Message } from "@/types/chat";
 import { ChatWindow } from "@/app/components/ChatWindow";
+import ReactFlow, { Background, Controls } from "reactflow";
+import "reactflow/dist/style.css";
 
 export default function Home() {
   const [step, setStep] = useState(1);
-  const [messages, setMessages] = useState<SplitMessage>({
-    left: [],
-    right: [],
-  });
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [hoveredSide, setHoveredSide] = useState<"left" | "right" | null>(null);
   const [selectedSide, setSelectedSide] = useState<"left" | "right" | null>(
@@ -39,7 +38,7 @@ export default function Home() {
     };
     setChatHistory((prev) => [newChat, ...prev]);
     setCurrentChatId(newChat.id);
-    setMessages({ left: [], right: [] });
+    setMessages([]);
     setSelectedSide(null);
   };
 
@@ -54,10 +53,7 @@ export default function Home() {
     setSelectedSide(null);
 
     const userMessage = { content: input, isUser: true };
-    const newMessages = {
-      left: [...messages.left, userMessage],
-      right: [...messages.right, userMessage],
-    };
+    const newMessages = [...messages, userMessage];
     setMessages(newMessages);
 
     try {
@@ -66,7 +62,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
-            ...newMessages.left.map((msg) => ({
+            ...newMessages.map((msg) => ({
               role: msg.isUser ? "user" : "assistant",
               content: msg.content,
             })),
@@ -77,24 +73,14 @@ export default function Home() {
       if (!response.ok) throw new Error(response.statusText);
 
       // Add empty assistant messages that we'll stream into
-      const emptyMessages = {
-        left: [
-          ...newMessages.left,
-          {
-            content: "",
-            isUser: false,
-            modelInfo: { name: "GPT-4", percentage: 75 },
-          },
-        ],
-        right: [
-          ...newMessages.right,
-          {
-            content: "",
-            isUser: false,
-            modelInfo: { name: "GPT-3.5", percentage: 25 },
-          },
-        ],
-      };
+      const emptyMessages = [
+        ...newMessages,
+        {
+          content: "",
+          isUser: false,
+          modelInfo: { name: "GPT-4", percentage: 75 },
+        },
+      ];
       setMessages(emptyMessages);
 
       const reader = response.body?.getReader();
@@ -114,20 +100,18 @@ export default function Home() {
           .filter(Boolean)
           .forEach((line) => {
             const update = JSON.parse(line) as {
-              side: "left" | "right";
               content: string;
               modelInfo: any;
             };
             setMessages((prev) => {
-              const side = update.side;
-              const messages = [...prev[side]];
+              const messages = [...prev];
               const lastMessage = messages[messages.length - 1];
               messages[messages.length - 1] = {
                 ...lastMessage,
                 content: lastMessage.content + update.content,
                 modelInfo: update.modelInfo,
               };
-              return { ...prev, [side]: messages };
+              return messages;
             });
           });
       }
@@ -138,29 +122,11 @@ export default function Home() {
     }
   };
 
-  const handleSideClick = (side: "left" | "right") => {
-    if (!selectedSide) {
-      setSelectedSide(side);
-
-      // Check if user selected the minority opinion
-      const leftPercentage =
-        messages.left[messages.left.length - 1]?.modelInfo?.percentage || 0;
-      const rightPercentage =
-        messages.right[messages.right.length - 1]?.modelInfo?.percentage || 0;
-      const selectedPercentage =
-        side === "left" ? leftPercentage : rightPercentage;
-
-      if (selectedPercentage < 50) {
-        setQueriesLeft((prev) => Math.max(0, prev - 1));
-      }
-    }
-  };
-
   const handleSelectChat = (id: string) => {
     setCurrentChatId(id);
     const chat = chatHistory.find((c) => c.id === id);
     if (chat) {
-      setMessages(chat.messages);
+      setMessages(chat.messages.left.concat(chat.messages.right));
       setSelectedSide(null);
     }
   };
@@ -189,15 +155,10 @@ export default function Home() {
         <div className={cn("flex-1 flex", isSidebarOpen && "ml-64")}>
           <ChatWindow
             messages={messages}
-            hoveredSide={hoveredSide}
-            selectedSide={selectedSide}
-            responsesReady={responsesReady}
             isSidebarOpen={isSidebarOpen}
             input={input}
             onInputChange={(e) => setInput(e.target.value)}
             onSubmit={handleSubmit}
-            onHover={setHoveredSide}
-            onClick={handleSideClick}
             isLoading={isLoading}
           />
         </div>

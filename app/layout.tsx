@@ -1,24 +1,10 @@
+"use client";
+
 import "./globals.css";
-import { Metadata } from "next";
 import { Inter } from "next/font/google";
-import Icon from "@/public/favicon.ico";
-import Icon16 from "@/public/favicon-16x16.png";
-import Icon32 from "@/public/favicon-32x32.png";
+import { ReactFlowProvider } from "reactflow";
 
 const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "TreeGPT",
-  description: "AI-powered tree of thought exploration",
-  icons: {
-    icon: [
-      { url: Icon.src },
-      { url: Icon16.src, sizes: "16x16", type: "image/png" },
-      { url: Icon32.src, sizes: "32x32", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-touch-icon.png" }],
-  },
-};
 
 export default function RootLayout({
   children,
@@ -27,7 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <ReactFlowProvider>{children}</ReactFlowProvider>
+      </body>
     </html>
   );
 }

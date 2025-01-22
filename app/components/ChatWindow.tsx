@@ -4,39 +4,103 @@ import { Message } from "@/types/chat";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { MessageSquare } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Controls, ReactFlowInstance } from "reactflow";
+import ReactFlow from "reactflow";
+import { Background, Node, Edge } from "reactflow";
 
 interface ChatWindowProps {
-  messages: {
-    left: Message[];
-    right: Message[];
-  };
-  hoveredSide: "left" | "right" | null;
-  selectedSide: "left" | "right" | null;
-  responsesReady: boolean;
+  messages: Message[];
   isSidebarOpen: boolean;
   input: string;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
-  onHover: (side: "left" | "right" | null) => void;
-  onClick: (side: "left" | "right") => void;
   isLoading: boolean;
 }
 
 export function ChatWindow({
   messages,
-  hoveredSide,
-  selectedSide,
-  responsesReady,
   isSidebarOpen,
   input,
   onInputChange,
   onSubmit,
-  onHover,
-  onClick,
   isLoading,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
+
+  const onInit = useCallback((instance: ReactFlowInstance) => {
+    setReactFlowInstance(instance);
+    instance.fitView({ padding: 0.2 });
+  }, []);
+
+  // Fit view whenever nodes change
+  useEffect(() => {
+    if (reactFlowInstance && nodes.length > 0) {
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2 });
+      }, 0);
+    }
+  }, [nodes, reactFlowInstance]);
+
+  useEffect(() => {
+    const newNodes: Node[] = [];
+    for (let i = 0; i < messages.length; i += 2) {
+      const query = messages[i];
+      const response = messages[i + 1];
+      if (query) {
+        newNodes.push({
+          id: `node-${i / 2}`,
+          position: {
+            x: 200,
+            y: (i / 2) * 150,
+          },
+          data: {
+            label: (
+              <div
+                style={{
+                  maxWidth: 200,
+                  whiteSpace: "pre-wrap",
+                  fontSize: "12px",
+                }}
+              >
+                <strong>Q: </strong>
+                {query.content.substring(0, 50)}...
+                {response && (
+                  <>
+                    <br />
+                    <strong>A: </strong>
+                    {response.content.substring(0, 50)}...
+                  </>
+                )}
+              </div>
+            ),
+          },
+          style: {
+            width: 220,
+            padding: "10px",
+          },
+          type: "default",
+        });
+      }
+    }
+
+    setNodes(newNodes);
+
+    const newEdges: Edge[] = newNodes.slice(1).map((_, index) => ({
+      id: `edge-${index}`,
+      source: `node-${index}`,
+      target: `node-${index + 1}`,
+      type: "smoothstep",
+      animated: true,
+      style: { stroke: "#333", strokeWidth: 2 },
+    }));
+
+    setEdges(newEdges);
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -47,26 +111,16 @@ export function ChatWindow({
   }, [messages]);
 
   return (
-    <div className="flex-1 flex flex-col  h-[calc(100vh-48px)]">
+    <div className="flex-1 flex flex-col h-[calc(100vh-48px)]">
       <div
         className={cn("flex-1 flex overflow-hidden", isSidebarOpen && "ml-64")}
       >
-        {/* Left Side */}
-        <div className="flex-1 flex flex-col h-full">
-          <div
-            className={cn(
-              "flex-1 p-4 overflow-y-auto",
-              responsesReady && !selectedSide && "cursor-pointer"
-            )}
-            onClick={() => responsesReady && onClick("left")}
-          >
+        {/* Chat Side */}
+        <div className="w-1/2 flex flex-col h-full">
+          <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
-              {messages.left.map((msg, idx) => (
-                <ChatMessage
-                  key={idx}
-                  message={msg}
-                  showModelInfo={!!selectedSide}
-                />
+              {messages.map((msg, idx) => (
+                <ChatMessage key={idx} message={msg} />
               ))}
               {isLoading && (
                 <div className="flex justify-center">
@@ -96,8 +150,23 @@ export function ChatWindow({
           </form>
         </div>
 
-        {/* Right Side */}
-        <div className="flex-1 border-l">TO DO: Tree map</div>
+        {/* Graph Side */}
+        <div className="w-1/2 border-l h-full">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onInit={onInit}
+            fitView
+            fitViewOptions={{ padding: 0.2, duration: 500 }}
+            minZoom={0.1}
+            maxZoom={1.5}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+            className="h-full"
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
       </div>
     </div>
   );

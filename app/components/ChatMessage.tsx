@@ -5,12 +5,17 @@ import { Message } from "@/types/chat";
 
 interface ChatMessageProps {
   message: Message;
-  showModelInfo: boolean;
+  showModelInfo?: boolean;
 }
 
-export function ChatMessage({ message, showModelInfo }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  showModelInfo = false,
+}: ChatMessageProps) {
   return (
-    <div className={cn("flex", message.isUser ? "justify-end" : "justify-start")}>
+    <div
+      className={cn("flex", message.isUser ? "justify-end" : "justify-start")}
+    >
       <div
         className={cn(
           "max-w-[80%] rounded-lg p-3",
