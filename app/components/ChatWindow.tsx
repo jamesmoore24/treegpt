@@ -53,7 +53,8 @@ export function ChatWindow({
     for (let i = 0; i < messages.length; i += 2) {
       const query = messages[i];
       const response = messages[i + 1];
-      if (query) {
+      // Only create node if we have both query and response
+      if (query && response) {
         newNodes.push({
           id: `node-${i / 2}`,
           position: {
@@ -71,13 +72,9 @@ export function ChatWindow({
               >
                 <strong>Q: </strong>
                 {query.content.substring(0, 50)}...
-                {response && (
-                  <>
-                    <br />
-                    <strong>A: </strong>
-                    {response.content.substring(0, 50)}...
-                  </>
-                )}
+                <br />
+                <strong>A: </strong>
+                {response.content.substring(0, 50)}...
               </div>
             ),
           },
