@@ -5,6 +5,7 @@ import { Button } from "@/app/components/ui/button";
 import { LivesCounter } from "@/app/components/LivesCounter";
 import { cn } from "@/lib/utils";
 import treeGPTLogo from "@/public/treeGPTLogo.png";
+import treeGPTLogoDarkMode from "@/public/treeGPTLogoDarkMode.png";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { SunIcon, MoonIcon } from "@heroicons/react/24/outline";
@@ -35,7 +36,12 @@ export function Header({
         </Button>
       </div>
 
-      <Image src={treeGPTLogo} alt="treeGPT Logo" width={150} height={150} />
+      <Image
+        src={theme === "dark" ? treeGPTLogoDarkMode : treeGPTLogo}
+        alt="treeGPT Logo"
+        width={150}
+        height={150}
+      />
       <div className="flex items-center gap-2">
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

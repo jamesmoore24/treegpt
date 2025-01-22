@@ -37,6 +37,8 @@ export function ChatWindow({
     useState<ReactFlowInstance | null>(null);
   const [splitPosition, setSplitPosition] = useState(50); // percentage
   const [isDragging, setIsDragging] = useState(false);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("GPT-4");
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     setReactFlowInstance(instance);
@@ -212,15 +214,51 @@ export function ChatWindow({
                   <span>
                     Est. Cost: ${((input.length / 4) * 0.000015).toFixed(6)}
                   </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8"
-                  >
-                    GPT-4
-                    <ChevronUp className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => setModelMenuOpen(!modelMenuOpen)}
+                    >
+                      {selectedModel || "GPT-4"}
+                      <ChevronUp
+                        className={cn(
+                          "ml-2 h-4 w-4",
+                          modelMenuOpen ? "rotate-180" : ""
+                        )}
+                      />
+                    </Button>
+                    {modelMenuOpen && (
+                      <div className="absolute bottom-full mb-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                        <div className="py-1" role="menu">
+                          {[
+                            "GPT-4o-mini",
+                            "GPT-4o",
+                            "GPT-3.5",
+                            "Claude",
+                            "Gemini",
+                          ].map((model) => (
+                            <button
+                              key={model}
+                              className={cn(
+                                "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
+                                selectedModel === model ? "bg-gray-50" : ""
+                              )}
+                              role="menuitem"
+                              onClick={() => {
+                                setSelectedModel(model);
+                                setModelMenuOpen(false);
+                              }}
+                            >
+                              {model}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? (
