@@ -28,6 +28,7 @@ export default function Home() {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [responsesReady, setResponsesReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {
@@ -42,7 +43,7 @@ export default function Home() {
     setSelectedSide(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
   };
 
@@ -51,6 +52,7 @@ export default function Home() {
     if (!input.trim() || isLoading) return;
 
     setIsLoading(true);
+    setIsLoadingFirstToken(true);
     setInput("");
     const userMessage = { content: input, isUser: true };
     const newMessages = [...messages, userMessage];
@@ -91,7 +93,8 @@ export default function Home() {
         if (done) break;
 
         const chunk = decoder.decode(value);
-        setIsLoading(false);
+
+        setIsLoadingFirstToken(false);
 
         // Handle each chunk as a complete JSON object
         const lines = chunk.split("\n").filter(Boolean);
@@ -116,29 +119,7 @@ export default function Home() {
           }
         }
       }
-
-      // After streaming is complete, send query and response for summarization
-      const lastQuery = newMessages[newMessages.length - 1].content;
-      const finalResponse = messages[messages.length - 1].content;
-
-      try {
-        const summaryResponse = await fetch("/api/node-summary", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: lastQuery,
-            response: finalResponse,
-          }),
-        });
-
-        if (!summaryResponse.ok) {
-          console.error("Error getting summary:", summaryResponse.statusText);
-        }
-      } catch (error) {
-        console.error("Error sending summary request:", error);
-      }
+      setIsLoading(false);
     } catch (error) {
       console.error("Error:", error);
       setIsLoading(false);
@@ -171,6 +152,7 @@ export default function Home() {
           onInputChange={handleInputChange}
           onSubmit={handleSubmit}
           isLoading={isLoading}
+          isLoadingFirstToken={isLoadingFirstToken}
         />
       </main>
     </div>

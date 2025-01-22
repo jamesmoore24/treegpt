@@ -3,19 +3,21 @@ import { ChatMessage } from "./ChatMessage";
 import { Message } from "@/types/chat";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { ChevronUp, MessageSquare } from "lucide-react";
+import { ArrowUp, ChevronUp, MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
 import ReactFlow from "reactflow";
 import { Background, Node, Edge } from "reactflow";
 import { ChatGraph } from "./ChatGraph";
+import { Textarea } from "./ui/textarea";
 interface ChatWindowProps {
   messages: Message[];
   isSidebarOpen: boolean;
   input: string;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
+  isLoadingFirstToken: boolean;
 }
 
 export function ChatWindow({
@@ -25,6 +27,7 @@ export function ChatWindow({
   onInputChange,
   onSubmit,
   isLoading,
+  isLoadingFirstToken,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -162,7 +165,7 @@ export function ChatWindow({
               {messages.map((msg, idx) => (
                 <ChatMessage key={idx} message={msg} />
               ))}
-              {isLoading && (
+              {isLoadingFirstToken && (
                 <div className="flex justify-center">
                   <div className="animate-bounce space-x-1">
                     <span className="w-2 h-2 bg-gray-400 rounded-full inline-block" />
@@ -174,35 +177,64 @@ export function ChatWindow({
               <div ref={messagesEndRef} />
             </div>
           </div>
-          <form
-            onSubmit={onSubmit}
-            className="p-4 border-t flex flex-col gap-2"
-          >
-            <div className="flex gap-2">
-              <Input
+          <div className="border-t">
+            <form onSubmit={onSubmit} className="p-4 flex flex-col gap-2">
+              <Textarea
                 value={input}
                 onChange={onInputChange}
                 placeholder="Type your message..."
                 className="flex-1"
                 disabled={isLoading}
+                rows={
+                  input.split("\n").length > 1
+                    ? Math.min(input.split("\n").length, 12)
+                    : 1
+                }
+                onKeyDown={(e) => {
+                  const lineCount = input.split("\n").length;
+                  if (e.key === "Enter") {
+                    if (lineCount <= 3 && !e.shiftKey) {
+                      e.preventDefault();
+                      onSubmit(e);
+                    } else if (lineCount <= 3 && e.shiftKey) {
+                      // Allow new line with Shift+Enter when under 3 lines
+                      return;
+                    } else if (lineCount > 3) {
+                      // After 4 lines, both Enter and Shift+Enter just create new lines
+                      return;
+                    }
+                  }
+                }}
               />
-              <Button type="submit" disabled={isLoading}>
-                <MessageSquare className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <div className="flex gap-4 items-center">
-                <span>Tokens: ~{Math.ceil(input.length / 4)}</span>
-                <span>
-                  Est. Cost: ${((input.length / 4) * 0.000015).toFixed(6)}
-                </span>
-                <Button variant="ghost" size="sm" className="h-8">
-                  GPT-4
-                  <ChevronUp className="ml-2 h-4 w-4" />
+              <div className="flex items-center justify-between">
+                <div className="flex gap-4 items-center text-sm text-muted-foreground">
+                  <span>Tokens: ~{Math.ceil(input.length / 4)}</span>
+                  <span>
+                    Est. Cost: ${((input.length / 4) * 0.000015).toFixed(6)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8"
+                  >
+                    GPT-4
+                    <ChevronUp className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <div className="h-4 w-4 relative">
+                      <div className="absolute inset-0 border-2 border-current rounded-sm" />
+                      <div className="absolute inset-[30%] bg-current rounded-full" />
+                    </div>
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
 
         {/* Resizer */}
