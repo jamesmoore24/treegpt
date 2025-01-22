@@ -31,6 +31,8 @@ export function ChatWindow({
   const [edges, setEdges] = useState<Edge[]>([]);
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
+  const [splitPosition, setSplitPosition] = useState(50); // percentage
+  const [isDragging, setIsDragging] = useState(false);
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     setReactFlowInstance(instance);
@@ -110,13 +112,44 @@ export function ChatWindow({
     scrollToBottom();
   }, [messages]);
 
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging) {
+        const windowWidth = window.innerWidth;
+        const percentage = (e.clientX / windowWidth) * 100;
+        setSplitPosition(Math.min(Math.max(percentage, 20), 80)); // Limit between 20% and 80%
+      }
+    },
+    [isDragging]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
   return (
     <div className="flex-1 flex flex-col h-[calc(100vh-48px)]">
-      <div
-        className={cn("flex-1 flex overflow-hidden", isSidebarOpen && "ml-64")}
-      >
+      <div className="flex-1 flex overflow-hidden">
         {/* Chat Side */}
-        <div className="w-1/2 flex flex-col h-full">
+        <div
+          style={{ width: `${splitPosition}%` }}
+          className="flex flex-col h-full"
+        >
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
               {messages.map((msg, idx) => (
@@ -150,8 +183,17 @@ export function ChatWindow({
           </form>
         </div>
 
+        {/* Resizer */}
+        <div
+          className="w-1 bg-gray-200 hover:bg-gray-400 cursor-col-resize active:bg-gray-600"
+          onMouseDown={handleMouseDown}
+        />
+
         {/* Graph Side */}
-        <div className="w-1/2 border-l h-full">
+        <div
+          style={{ width: `${100 - splitPosition}%` }}
+          className="border-l h-full"
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}

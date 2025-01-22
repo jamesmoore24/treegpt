@@ -48,10 +48,6 @@ export default function Home() {
 
     setIsLoading(true);
     setInput("");
-    setResponsesReady(false);
-    setHoveredSide(null);
-    setSelectedSide(null);
-
     const userMessage = { content: input, isUser: true };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
@@ -61,18 +57,16 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [
-            ...newMessages.map((msg) => ({
-              role: msg.isUser ? "user" : "assistant",
-              content: msg.content,
-            })),
-          ],
+          messages: newMessages.map((msg) => ({
+            role: msg.isUser ? "user" : "assistant",
+            content: msg.content,
+          })),
         }),
       });
 
       if (!response.ok) throw new Error(response.statusText);
 
-      // Add empty assistant messages that we'll stream into
+      // Add empty assistant message that we'll stream into
       const emptyMessages = [
         ...newMessages,
         {
@@ -95,27 +89,29 @@ export default function Home() {
         const chunk = decoder.decode(value);
         setIsLoading(false);
 
-        chunk
-          .split("\n")
-          .filter(Boolean)
-          .forEach((line) => {
-            const update = JSON.parse(line) as {
-              content: string;
-              modelInfo: any;
-            };
+        // Handle each chunk as a complete JSON object
+        const lines = chunk.split("\n").filter(Boolean);
+        for (const line of lines) {
+          try {
+            const update = JSON.parse(line);
             setMessages((prev) => {
               const messages = [...prev];
               const lastMessage = messages[messages.length - 1];
               messages[messages.length - 1] = {
                 ...lastMessage,
-                content: lastMessage.content + update.content,
+                content: (lastMessage.content + update.content).replace(
+                  /\n\n/g,
+                  "\n"
+                ),
                 modelInfo: update.modelInfo,
               };
               return messages;
             });
-          });
+          } catch (e) {
+            console.error("Error parsing chunk:", e);
+          }
+        }
       }
-      setResponsesReady(true);
     } catch (error) {
       console.error("Error:", error);
       setIsLoading(false);
