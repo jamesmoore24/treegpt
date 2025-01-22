@@ -122,8 +122,9 @@ export default function Home() {
       }
       setIsLoading(false);
 
-      // Generate summary only for new chats
-      if (currentChatId) {
+      // Generate summary only for the first message in a new chat
+      console.log(fullResponse);
+      if (currentChatId && messages.length === 0) {
         try {
           const summaryResponse = await fetch("/api/chat-summary", {
             method: "POST",
