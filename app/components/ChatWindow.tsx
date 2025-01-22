@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
 import ReactFlow from "reactflow";
 import { Background, Node, Edge } from "reactflow";
-
+import { ChatGraph } from "./ChatGraph";
 interface ChatWindowProps {
   messages: Message[];
   isSidebarOpen: boolean;
@@ -186,26 +186,12 @@ export function ChatWindow({
           onMouseDown={handleMouseDown}
         />
 
-        {/* Graph Side */}
-        <div
-          style={{ width: `${100 - splitPosition}%` }}
-          className="border-l h-full"
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onInit={onInit}
-            fitView
-            fitViewOptions={{ padding: 0.2, duration: 500 }}
-            minZoom={0.1}
-            maxZoom={1.5}
-            defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
-            className="h-full"
-          >
-            <Background />
-            <Controls />
-          </ReactFlow>
-        </div>
+        <ChatGraph
+          nodes={nodes}
+          edges={edges}
+          onInit={onInit}
+          splitPosition={splitPosition}
+        />
       </div>
     </div>
   );
