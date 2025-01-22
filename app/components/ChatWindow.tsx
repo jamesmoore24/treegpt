@@ -39,6 +39,18 @@ export function ChatWindow({
   const [isDragging, setIsDragging] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState("GPT-4");
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsSmallScreen(window.innerWidth < 768); // 768px is Tailwind's md breakpoint
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     setReactFlowInstance(instance);
@@ -124,22 +136,30 @@ export function ChatWindow({
     scrollToBottom();
   }, [messages]);
 
-  const handleMouseDown = useCallback(() => {
-    setIsDragging(true);
-  }, []);
-
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (isDragging) {
-        const sidebarWidth = isSidebarOpen ? 256 : 0; // w-64 = 16rem = 256px
+      if (!isDragging) return;
+
+      if (isSmallScreen) {
+        const headerHeight = 48; // Height of the header
+        const containerHeight = window.innerHeight - headerHeight;
+        const relativeY = e.clientY - headerHeight;
+        const percentage = (relativeY / containerHeight) * 100;
+        setSplitPosition(Math.min(Math.max(percentage, 20), 80)); // Limit between 20% and 80%
+      } else {
+        const sidebarWidth = isSidebarOpen ? 256 : 0;
         const availableWidth = window.innerWidth - sidebarWidth;
         const relativeX = e.clientX - sidebarWidth;
         const percentage = (relativeX / availableWidth) * 100;
-        setSplitPosition(Math.min(Math.max(percentage, 20), 80)); // Limit between 20% and 80%
+        setSplitPosition(Math.min(Math.max(percentage, 20), 80));
       }
     },
-    [isDragging, isSidebarOpen]
+    [isDragging, isSidebarOpen, isSmallScreen]
   );
+
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true);
+  }, []);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -163,11 +183,14 @@ export function ChatWindow({
         isSidebarOpen ? "ml-64" : ""
       )}
     >
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Chat Side */}
         <div
-          style={{ width: `${splitPosition}%` }}
-          className="flex flex-col h-full"
+          style={{
+            width: isSmallScreen ? "100%" : `${splitPosition}%`,
+            height: isSmallScreen ? `${splitPosition}%` : "100%",
+          }}
+          className="flex flex-col"
         >
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
@@ -284,7 +307,10 @@ export function ChatWindow({
 
         {/* Resizer */}
         <div
-          className="w-1 bg-gray-200 hover:bg-gray-400 cursor-col-resize active:bg-gray-600"
+          className={cn(
+            "bg-gray-200 hover:bg-gray-400 active:bg-gray-600",
+            isSmallScreen ? "h-1 cursor-row-resize" : "w-1 cursor-col-resize"
+          )}
           onMouseDown={handleMouseDown}
         />
 
@@ -293,6 +319,7 @@ export function ChatWindow({
           edges={edges}
           onInit={onInit}
           splitPosition={splitPosition}
+          isSmallScreen={isSmallScreen}
         />
       </div>
     </div>

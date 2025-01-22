@@ -2,21 +2,28 @@
 
 import ReactFlow, { Background, Controls, ReactFlowInstance } from "reactflow";
 import { Node, Edge } from "reactflow";
+import { cn } from "@/lib/utils";
+
 export function ChatGraph({
   nodes,
   edges,
   onInit,
   splitPosition,
+  isSmallScreen,
 }: {
   nodes: Node[];
   edges: Edge[];
   onInit: (reactFlowInstance: ReactFlowInstance) => void;
   splitPosition: number;
+  isSmallScreen: boolean;
 }) {
   return (
     <div
-      style={{ width: `${100 - splitPosition}%` }}
-      className="border-l h-full"
+      style={{
+        width: isSmallScreen ? "100%" : `${100 - splitPosition}%`,
+        height: isSmallScreen ? `${100 - splitPosition}%` : "100%",
+      }}
+      className={cn(isSmallScreen ? "border-t" : "border-l", "h-full")}
     >
       <ReactFlow
         nodes={nodes}
