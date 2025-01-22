@@ -51,12 +51,58 @@ http://localhost:3000
 
 (or the URL shown in your terminal)
 
-## Features
+## What is TreeGPT?
 
-- Interactive chat interface with GPT
-- Visual representation of conversation flow
-- Resizable split view between chat and graph
-- Real-time conversation tree updates
+TreeGPT ([treegpt.app](https://treegpt.app)) is a new chat interface built for speed and ease of use, based on modeling conversations with LLMs as trees (DAGs) instead of linearly.
+
+### Problems TreeGPT Solves
+
+1. **Tangential Conversations**
+
+   - Traditional interfaces don't allow for branching conversations
+   - TreeGPT enables chat tangents with easy context control
+
+2. **Natural Language Search**
+
+   - Search through chats using natural language descriptions
+   - Uses metadata embeddings and RAG lookup for better search results
+
+3. **Token Management**
+
+   - Real-time token usage tracking and cost estimation
+   - Control over output length and context window
+
+4. **Model Selection**
+   - Intelligent model routing based on heuristics and benchmarks
+   - Support for multiple providers (OpenAI, Anthropic, Gemini, DeepSeek)
+
+### Key Features
+
+1. **Interactive Tree Visualization**
+
+   - Mini-map showing the conversation tree
+   - Visual "context lineage" highlighting
+   - Node summaries and hover previews
+
+2. **Vim-like Keybindings**
+
+   - Toggle between "chatting" and "viewing" modes [`]
+   - Tree navigation with [j] for up, [1-9] for edge selection
+   - Root navigation [r]
+   - Search functionality [/]
+   - Node editing [e]
+   - Node deletion [dd]
+
+3. **Advanced Architecture**
+
+   - Tree-based data modeling for efficient search and caching
+   - LiteLLM integration for API and context management
+   - Support for personal API keys or subscription-based usage
+
+4. **Multi-Model Support**
+   - Connect to various LLM providers using your own API keys
+   - Intelligent model routing between providers
+   - Comparative testing of different models
 
 ## Tech Stack
 
@@ -65,3 +111,5 @@ http://localhost:3000
 - React Flow
 - Tailwind CSS
 - OpenAI API
+- LiteLLM
+- AWS Infrastructure
