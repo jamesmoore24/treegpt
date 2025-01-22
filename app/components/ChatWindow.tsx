@@ -3,7 +3,7 @@ import { ChatMessage } from "./ChatMessage";
 import { Message } from "@/types/chat";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { MessageSquare } from "lucide-react";
+import { ChevronUp, MessageSquare } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
 import ReactFlow from "reactflow";
@@ -29,6 +29,7 @@ export function ChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [currentChatIndex, setCurrentChatIndex] = useState<number>(0);
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
   const [splitPosition, setSplitPosition] = useState(50); // percentage
@@ -53,13 +54,14 @@ export function ChatWindow({
     for (let i = 0; i < messages.length; i += 2) {
       const query = messages[i];
       const response = messages[i + 1];
+      const nodeIndex = i / 2;
       // Only create node if we have both query and response
       if (query && response) {
         newNodes.push({
-          id: `node-${i / 2}`,
+          id: `node-${nodeIndex}`,
           position: {
             x: 200,
-            y: (i / 2) * 150,
+            y: nodeIndex * 150,
           },
           data: {
             label: (
@@ -71,16 +73,20 @@ export function ChatWindow({
                 }}
               >
                 <strong>Q: </strong>
-                {query.content.substring(0, 50)}...
+                {query.content.substring(0, 50)}{" "}
+                {query.content.length > 50 ? "..." : ""}
                 <br />
                 <strong>A: </strong>
-                {response.content.substring(0, 50)}...
+                {response.content.substring(0, 50)}{" "}
+                {response.content.length > 50 ? "..." : ""}
               </div>
             ),
           },
           style: {
             width: 220,
             padding: "10px",
+            border:
+              nodeIndex === currentChatIndex ? "2px solid #ff0000" : undefined,
           },
           type: "default",
         });
@@ -93,13 +99,17 @@ export function ChatWindow({
       id: `edge-${index}`,
       source: `node-${index}`,
       target: `node-${index + 1}`,
-      type: "smoothstep",
-      animated: true,
+      type: "default",
       style: { stroke: "#333", strokeWidth: 2 },
     }));
 
     setEdges(newEdges);
-  }, [messages]);
+  }, [messages, currentChatIndex]);
+
+  // Update currentChatIndex when new messages come in
+  useEffect(() => {
+    setCurrentChatIndex(Math.floor((messages.length - 1) / 2));
+  }, [messages.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -164,7 +174,10 @@ export function ChatWindow({
               <div ref={messagesEndRef} />
             </div>
           </div>
-          <form onSubmit={onSubmit} className="p-4 border-t">
+          <form
+            onSubmit={onSubmit}
+            className="p-4 border-t flex flex-col gap-2"
+          >
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -176,6 +189,18 @@ export function ChatWindow({
               <Button type="submit" disabled={isLoading}>
                 <MessageSquare className="h-4 w-4" />
               </Button>
+            </div>
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex gap-4 items-center">
+                <span>Tokens: ~{Math.ceil(input.length / 4)}</span>
+                <span>
+                  Est. Cost: ${((input.length / 4) * 0.000015).toFixed(6)}
+                </span>
+                <Button variant="ghost" size="sm" className="h-8">
+                  GPT-4
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </form>
         </div>

@@ -57,7 +57,7 @@ export default function Home() {
     setMessages(newMessages);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/chat-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,6 +116,29 @@ export default function Home() {
           }
         }
       }
+
+      // After streaming is complete, send query and response for summarization
+      const lastQuery = newMessages[newMessages.length - 1].content;
+      const finalResponse = messages[messages.length - 1].content;
+
+      try {
+        const summaryResponse = await fetch("/api/node-summary", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: lastQuery,
+            response: finalResponse,
+          }),
+        });
+
+        if (!summaryResponse.ok) {
+          console.error("Error getting summary:", summaryResponse.statusText);
+        }
+      } catch (error) {
+        console.error("Error sending summary request:", error);
+      }
     } catch (error) {
       console.error("Error:", error);
       setIsLoading(false);
@@ -133,7 +156,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <Header />
+      <Header
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        onNewChat={handleNewChat}
+        queriesLeft={queriesLeft}
+        isSidebarOpen={isSidebarOpen}
+      />
       <OnboardingModal step={step} onStepChange={setStep} />
       <main className="flex-1 flex">
         <ChatWindow
