@@ -7,14 +7,9 @@ export type Message = {
   };
 };
 
-export type SplitMessage = {
-  left: Message[];
-  right: Message[];
-};
-
 export type ChatHistory = {
   id: string;
   title: string;
   timestamp: Date;
-  messages: SplitMessage;
+  messages: Message[];
 };

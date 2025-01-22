@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { MessageSquare } from "lucide-react";
@@ -18,29 +18,30 @@ export default function Home() {
   const [step, setStep] = useState(1);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [hoveredSide, setHoveredSide] = useState<"left" | "right" | null>(null);
-  const [selectedSide, setSelectedSide] = useState<"left" | "right" | null>(
-    null
-  );
   const [queriesLeft, setQueriesLeft] = useState(10);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-  const [responsesReady, setResponsesReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
+
+  useEffect(() => {
+    // Initialize with a single new chat if no stored history
+    if (chatHistory.length === 0) {
+      handleNewChat();
+    }
+  }, []); // Only run once on mount
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {
       id: crypto.randomUUID(),
       title: "New Chat",
       timestamp: new Date(),
-      messages: { left: [], right: [] },
+      messages: [],
     };
     setChatHistory((prev) => [newChat, ...prev]);
     setCurrentChatId(newChat.id);
     setMessages([]);
-    setSelectedSide(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -88,12 +89,13 @@ export default function Home() {
 
       if (!reader) throw new Error("No reader available");
 
+      let fullResponse = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);
-
         setIsLoadingFirstToken(false);
 
         // Handle each chunk as a complete JSON object
@@ -101,15 +103,13 @@ export default function Home() {
         for (const line of lines) {
           try {
             const update = JSON.parse(line);
+            fullResponse += update.content;
             setMessages((prev) => {
               const messages = [...prev];
               const lastMessage = messages[messages.length - 1];
               messages[messages.length - 1] = {
                 ...lastMessage,
-                content: (lastMessage.content + update.content).replace(
-                  /\n\n/g,
-                  "\n"
-                ),
+                content: fullResponse.replace(/\n\n/g, "\n"),
                 modelInfo: update.modelInfo,
               };
               return messages;
@@ -120,6 +120,31 @@ export default function Home() {
         }
       }
       setIsLoading(false);
+
+      // Generate summary only for new chats
+      if (currentChatId) {
+        try {
+          const summaryResponse = await fetch("/api/chat-summary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: input,
+              response: fullResponse,
+            }),
+          });
+
+          if (summaryResponse.ok) {
+            const { summary } = await summaryResponse.json();
+            setChatHistory((prev) =>
+              prev.map((chat) =>
+                chat.id === currentChatId ? { ...chat, title: summary } : chat
+              )
+            );
+          }
+        } catch (error) {
+          console.error("Error generating summary:", error);
+        }
+      }
     } catch (error) {
       console.error("Error:", error);
       setIsLoading(false);
@@ -130,8 +155,7 @@ export default function Home() {
     setCurrentChatId(id);
     const chat = chatHistory.find((c) => c.id === id);
     if (chat) {
-      setMessages(chat.messages.left.concat(chat.messages.right));
-      setSelectedSide(null);
+      setMessages(chat.messages);
     }
   };
 
@@ -145,6 +169,14 @@ export default function Home() {
       />
       <OnboardingModal step={step} onStepChange={setStep} />
       <main className="flex-1 flex">
+        <ChatSidebar
+          isOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onNewChat={handleNewChat}
+          history={chatHistory}
+          onSelectChat={handleSelectChat}
+          currentChatId={currentChatId}
+        />
         <ChatWindow
           messages={messages}
           isSidebarOpen={isSidebarOpen}

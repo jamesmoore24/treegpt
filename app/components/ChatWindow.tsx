@@ -155,7 +155,12 @@ export function ChatWindow({
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-48px)]">
+    <div
+      className={cn(
+        "flex-1 flex flex-col h-[calc(100vh-48px)]",
+        isSidebarOpen ? "ml-64" : ""
+      )}
+    >
       <div className="flex-1 flex overflow-hidden">
         {/* Chat Side */}
         <div
