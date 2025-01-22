@@ -1,6 +1,6 @@
 <img src="public/treeGPTLogo.png" alt="TreeGPT Logo" width="400"/>
 
-# TreeGPT
+# [TreeGPT](https://treegpt.app/)
 
 A Next.js application that visualizes chat conversations with GPT in a tree-like graph structure.
 
