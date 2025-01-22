@@ -131,12 +131,14 @@ export function ChatWindow({
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (isDragging) {
-        const windowWidth = window.innerWidth;
-        const percentage = (e.clientX / windowWidth) * 100;
+        const sidebarWidth = isSidebarOpen ? 256 : 0; // w-64 = 16rem = 256px
+        const availableWidth = window.innerWidth - sidebarWidth;
+        const relativeX = e.clientX - sidebarWidth;
+        const percentage = (relativeX / availableWidth) * 100;
         setSplitPosition(Math.min(Math.max(percentage, 20), 80)); // Limit between 20% and 80%
       }
     },
-    [isDragging]
+    [isDragging, isSidebarOpen]
   );
 
   const handleMouseUp = useCallback(() => {
