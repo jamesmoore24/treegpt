@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { MessageSquare } from "lucide-react";
@@ -24,13 +24,14 @@ export default function Home() {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    // Initialize with a single new chat if no stored history
-    if (chatHistory.length === 0) {
+    if (!initialized.current && chatHistory.length === 0) {
+      initialized.current = true;
       handleNewChat();
     }
-  }, []); // Only run once on mount
+  }, [chatHistory.length]);
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {

@@ -49,7 +49,9 @@ export function ChatSidebar({
                   className="w-full justify-start"
                   onClick={() => onSelectChat(chat.id)}
                 >
-                  <MessageSquare className="w-4 h-4 mr-2" />
+                  <div className="w-6 flex justify-center pr-2">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
                   <span className="truncate">{chat.title}</span>
                 </Button>
               ))}
