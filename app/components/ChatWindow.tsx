@@ -4,12 +4,14 @@ import { Message } from "@/types/chat";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ArrowUp, ChevronUp, MessageSquare } from "lucide-react";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
 import ReactFlow from "reactflow";
 import { Background, Node, Edge } from "reactflow";
 import { ChatGraph } from "./ChatGraph";
 import { Textarea } from "./ui/textarea";
+import { debounce } from "lodash";
+
 interface ChatWindowProps {
   messages: Message[];
   isSidebarOpen: boolean;
@@ -57,71 +59,74 @@ export function ChatWindow({
     instance.fitView({ padding: 0.2 });
   }, []);
 
-  // Fit view whenever nodes change
+  // Debounced fit view
+  const debouncedFitView = useMemo(
+    () =>
+      debounce((instance: ReactFlowInstance) => {
+        requestAnimationFrame(() => {
+          instance?.fitView({ padding: 0.2, duration: 200 });
+        });
+      }, 250),
+    []
+  );
+
+  // Update nodes with delay
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const newNodes: Node[] = messages.reduce((acc: Node[], msg, i) => {
+        if (i % 2 === 0 && messages[i + 1]) {
+          const nodeIndex = i / 2;
+          acc.push({
+            id: `node-${nodeIndex}`,
+            position: { x: 200, y: nodeIndex * 150 },
+            data: {
+              label: (
+                <div className="max-w-[200px] whitespace-pre-wrap text-xs">
+                  <strong>Q: </strong>
+                  {msg.content.substring(0, 50)}
+                  {msg.content.length > 50 ? "..." : ""}
+                  <br />
+                  <strong>A: </strong>
+                  {messages[i + 1].content.substring(0, 50)}
+                  {messages[i + 1].content.length > 50 ? "..." : ""}
+                </div>
+              ),
+            },
+            style: {
+              width: 220,
+              padding: "10px",
+              border:
+                nodeIndex === currentChatIndex
+                  ? "2px solid #ff0000"
+                  : undefined,
+            },
+          });
+        }
+        return acc;
+      }, []);
+
+      setNodes(newNodes);
+
+      const newEdges: Edge[] = newNodes.slice(1).map((_, index) => ({
+        id: `edge-${index}`,
+        source: `node-${index}`,
+        target: `node-${index + 1}`,
+        type: "default",
+        style: { stroke: "#333", strokeWidth: 2 },
+      }));
+
+      setEdges(newEdges);
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages, currentChatIndex]);
+
+  // Separate effect for fitting view
   useEffect(() => {
     if (reactFlowInstance && nodes.length > 0) {
-      setTimeout(() => {
-        reactFlowInstance.fitView({ padding: 0.2 });
-      }, 0);
+      debouncedFitView(reactFlowInstance);
     }
-  }, [nodes, reactFlowInstance]);
-
-  useEffect(() => {
-    const newNodes: Node[] = [];
-    for (let i = 0; i < messages.length; i += 2) {
-      const query = messages[i];
-      const response = messages[i + 1];
-      const nodeIndex = i / 2;
-      // Only create node if we have both query and response
-      if (query && response) {
-        newNodes.push({
-          id: `node-${nodeIndex}`,
-          position: {
-            x: 200,
-            y: nodeIndex * 150,
-          },
-          data: {
-            label: (
-              <div
-                style={{
-                  maxWidth: 200,
-                  whiteSpace: "pre-wrap",
-                  fontSize: "12px",
-                }}
-              >
-                <strong>Q: </strong>
-                {query.content.substring(0, 50)}{" "}
-                {query.content.length > 50 ? "..." : ""}
-                <br />
-                <strong>A: </strong>
-                {response.content.substring(0, 50)}{" "}
-                {response.content.length > 50 ? "..." : ""}
-              </div>
-            ),
-          },
-          style: {
-            width: 220,
-            padding: "10px",
-            border:
-              nodeIndex === currentChatIndex ? "2px solid #ff0000" : undefined,
-          },
-          type: "default",
-        });
-      }
-    }
-
-    setNodes(newNodes);
-
-    const newEdges: Edge[] = newNodes.slice(1).map((_, index) => ({
-      id: `edge-${index}`,
-      source: `node-${index}`,
-      target: `node-${index + 1}`,
-      type: "default",
-      style: { stroke: "#333", strokeWidth: 2 },
-    }));
-
-    setEdges(newEdges);
-  }, [messages, currentChatIndex]);
+  }, [nodes, reactFlowInstance, debouncedFitView]);
 
   // Update currentChatIndex when new messages come in
   useEffect(() => {
@@ -216,7 +221,6 @@ export function ChatWindow({
                 onChange={onInputChange}
                 placeholder="Type your message..."
                 className="flex-1"
-                disabled={isLoading}
                 rows={
                   input.split("\n").length > 1
                     ? Math.min(input.split("\n").length, 12)
