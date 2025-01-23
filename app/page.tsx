@@ -13,15 +13,17 @@ import { ChatHistory, Message } from "@/types/chat";
 import { ChatWindow } from "@/app/components/ChatWindow";
 import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
+import { ChatNode } from "@/types/chat";
 
 export default function Home() {
   const [step, setStep] = useState(1);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageContext, setMessageContext] = useState<ChatNode[]>([]);
+  const [chatNodes, setChatNodes] = useState<Map<string, ChatNode>>(new Map());
   const [input, setInput] = useState("");
   const [queriesLeft, setQueriesLeft] = useState(10);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [currentChatId, setCurrentChatId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
@@ -38,11 +40,15 @@ export default function Home() {
       id: crypto.randomUUID(),
       title: "New Chat",
       timestamp: new Date(),
-      messages: [],
+      messageContext: [],
+      chatNodes: new Map(),
     };
     setChatHistory((prev) => [newChat, ...prev]);
     setCurrentChatId(newChat.id);
-    setMessages([]);
+    setMessageContext([]);
+    setChatNodes(new Map());
+
+    //TODO: Create new chat object in database
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -57,8 +63,15 @@ export default function Home() {
     setIsLoadingFirstToken(true);
     setInput("");
     const userMessage = { content: input, isUser: true };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const newMessages = [
+      ...messageContext.flatMap((node) => [
+        { content: node.query, isUser: true },
+        { content: node.response, isUser: false },
+      ]),
+      userMessage,
+    ];
+
+    const newChatNodeID = `${currentChatId}-${chatNodes.size}`;
 
     try {
       const response = await fetch("/api/chat-stream", {
@@ -75,15 +88,18 @@ export default function Home() {
       if (!response.ok) throw new Error(response.statusText);
 
       // Add empty assistant message that we'll stream into
-      const emptyMessages = [
-        ...newMessages,
+      const emptyMessages: ChatNode[] = [
+        ...messageContext,
         {
-          content: "",
-          isUser: false,
-          modelInfo: { name: "GPT-4", percentage: 75 },
+          id: newChatNodeID,
+          parentId: null,
+          children: [],
+          query: input,
+          response: "",
         },
       ];
-      setMessages(emptyMessages);
+
+      setMessageContext(emptyMessages);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -105,13 +121,12 @@ export default function Home() {
           try {
             const update = JSON.parse(line);
             fullResponse += update.content;
-            setMessages((prev) => {
+            setMessageContext((prev) => {
               const messages = [...prev];
               const lastMessage = messages[messages.length - 1];
               messages[messages.length - 1] = {
                 ...lastMessage,
-                content: fullResponse.replace(/\n\n/g, "\n"),
-                modelInfo: update.modelInfo,
+                response: fullResponse.replace(/\n\n/g, "\n"),
               };
               return messages;
             });
@@ -122,9 +137,38 @@ export default function Home() {
       }
       setIsLoading(false);
 
-      // Generate summary only for the first message in a new chat
+      // Add the new node to chatNodes
+      setChatNodes((prev) => {
+        const newNode: ChatNode = {
+          id: newChatNodeID,
+          parentId: null,
+          children: [],
+          query: input,
+          response: fullResponse,
+        };
+
+        // Create a new Map with the existing entries
+        const updated = new Map(prev);
+
+        if (messageContext.length > 0) {
+          const lastMessageId = messageContext[messageContext.length - 1].id;
+          const parentNode = updated.get(lastMessageId);
+          if (parentNode) {
+            const updatedParentNode = {
+              ...parentNode,
+              children: [...parentNode.children, newNode.id],
+            };
+            updated.set(lastMessageId, updatedParentNode);
+            newNode.parentId = parentNode.id;
+          }
+        }
+
+        updated.set(newNode.id, newNode);
+        return updated;
+      });
+
       console.log(fullResponse);
-      if (currentChatId && messages.length === 0) {
+      if (currentChatId && messageContext.length === 0) {
         try {
           const summaryResponse = await fetch("/api/chat-summary", {
             method: "POST",
@@ -157,7 +201,8 @@ export default function Home() {
     setCurrentChatId(id);
     const chat = chatHistory.find((c) => c.id === id);
     if (chat) {
-      setMessages(chat.messages);
+      setMessageContext(chat.messageContext);
+      setChatNodes(chat.chatNodes);
     }
   };
 
@@ -180,7 +225,9 @@ export default function Home() {
           currentChatId={currentChatId}
         />
         <ChatWindow
-          messages={messages}
+          messageContext={messageContext}
+          chatNodes={chatNodes}
+          currentChatId={currentChatId}
           isSidebarOpen={isSidebarOpen}
           input={input}
           onInputChange={handleInputChange}

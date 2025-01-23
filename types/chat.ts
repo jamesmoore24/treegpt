@@ -1,15 +1,20 @@
 export type Message = {
   content: string;
   isUser: boolean;
-  modelInfo?: {
-    name: string;
-    percentage: number;
-  };
 };
 
 export type ChatHistory = {
   id: string;
   title: string;
   timestamp: Date;
-  messages: Message[];
+  messageContext: ChatNode[];
+  chatNodes: Map<string, ChatNode>;
+};
+
+export type ChatNode = {
+  id: string;
+  parentId: string | null;
+  children: string[];
+  query: string;
+  response: string;
 };

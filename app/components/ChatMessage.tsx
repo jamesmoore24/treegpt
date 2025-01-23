@@ -10,7 +10,6 @@ import type { ComponentType } from "react";
 
 interface ChatMessageProps {
   message: Message;
-  showModelInfo?: boolean;
 }
 
 const MarkdownComponents: Record<string, ComponentType<any>> = {
@@ -182,10 +181,7 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
   },
 };
 
-export function ChatMessage({
-  message,
-  showModelInfo = false,
-}: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div
       className={cn("flex", message.isUser ? "justify-end" : "justify-start")}
@@ -202,12 +198,6 @@ export function ChatMessage({
         >
           {message.content}
         </ReactMarkdown>
-        {message.modelInfo && showModelInfo && (
-          <div className="mt-2 text-sm text-muted-foreground">
-            <p>Model: {message.modelInfo.name}</p>
-            <p>Population agreement: {message.modelInfo.percentage}%</p>
-          </div>
-        )}
       </div>
     </div>
   );

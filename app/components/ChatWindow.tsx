@@ -8,12 +8,15 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
 import ReactFlow from "reactflow";
 import { Background, Node, Edge } from "reactflow";
+import { ChatNode } from "@/types/chat";
 import { ChatGraph } from "./ChatGraph";
 import { Textarea } from "./ui/textarea";
 import { debounce } from "lodash";
 
 interface ChatWindowProps {
-  messages: Message[];
+  messageContext: ChatNode[];
+  chatNodes: Map<string, ChatNode>;
+  currentChatId: string;
   isSidebarOpen: boolean;
   input: string;
   onInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -23,7 +26,9 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({
-  messages,
+  messageContext,
+  chatNodes,
+  currentChatId,
   isSidebarOpen,
   input,
   onInputChange,
@@ -73,53 +78,103 @@ export function ChatWindow({
   // Update nodes with delay
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      const newNodes: Node[] = messages.reduce((acc: Node[], msg, i) => {
-        if (i % 2 === 0 && messages[i + 1]) {
-          const nodeIndex = i / 2;
-          acc.push({
-            id: `node-${nodeIndex}`,
-            position: { x: 200, y: nodeIndex * 150 },
-            data: {
-              label: (
-                <div className="max-w-[200px] whitespace-pre-wrap text-xs">
-                  <strong>Q: </strong>
-                  {msg.content.substring(0, 50)}
-                  {msg.content.length > 50 ? "..." : ""}
-                  <br />
-                  <strong>A: </strong>
-                  {messages[i + 1].content.substring(0, 50)}
-                  {messages[i + 1].content.length > 50 ? "..." : ""}
-                </div>
-              ),
-            },
-            style: {
-              width: 220,
-              padding: "10px",
-              border:
-                nodeIndex === currentChatIndex
-                  ? "2px solid #ff0000"
-                  : undefined,
-            },
-          });
+      const newNodes: Node[] = [];
+      const newEdges: Edge[] = [];
+      const queue: ChatNode[] = [];
+      const levels: Map<string, number> = new Map();
+
+      // Start with root node
+      console.log("chatNodes", chatNodes);
+      console.log("currentChatId", currentChatId);
+      console.log("messageContext", messageContext);
+
+      const rootNode = chatNodes.get(`${currentChatId}-0`);
+      if (rootNode) {
+        queue.push(rootNode);
+        levels.set(`${currentChatId}-0`, 0);
+      }
+
+      // BFS traversal
+      let currentLevel = 0;
+      let nodesInCurrentLevel = 1;
+      let nodesInNextLevel = 0;
+      let processedInCurrentLevel = 0;
+      let xOffset = 0;
+
+      while (queue.length > 0) {
+        const node = queue.shift()!;
+        const level = levels.get(node.id)!;
+
+        // Check if node is in message context
+        const isInMessageContext = messageContext.some(
+          (msg) => msg.id === node.id
+        );
+
+        // Add node
+        newNodes.push({
+          id: node.id,
+          position: {
+            x: level * 250,
+            y: xOffset * 150,
+          },
+          data: {
+            label: (
+              <div className="max-w-[200px] whitespace-pre-wrap text-xs">
+                <strong>Q: </strong>
+                {node.query.substring(0, 50)}
+                {node.query.length > 50 ? "..." : ""}
+                <br />
+                <strong>A: </strong>
+                {node.response.substring(0, 50)}
+                {node.response.length > 50 ? "..." : ""}
+              </div>
+            ),
+          },
+          style: {
+            width: 220,
+            padding: "10px",
+            border: isInMessageContext ? "2px solid #ff0000" : undefined,
+          },
+        });
+
+        // Add edges to children
+        node.children.forEach((childId) => {
+          const childNode = chatNodes.get(childId);
+          if (childNode) {
+            queue.push(childNode);
+            levels.set(childId, level + 1);
+            nodesInNextLevel++;
+
+            newEdges.push({
+              id: `edge-${node.id}-${childId}`,
+              source: node.id,
+              target: childId,
+              type: "default",
+              style: {
+                stroke: isInMessageContext ? "#ff0000" : "#333",
+                strokeWidth: 2,
+              },
+            });
+          }
+        });
+
+        processedInCurrentLevel++;
+        xOffset++;
+
+        if (processedInCurrentLevel === nodesInCurrentLevel) {
+          currentLevel++;
+          nodesInCurrentLevel = nodesInNextLevel;
+          nodesInNextLevel = 0;
+          processedInCurrentLevel = 0;
         }
-        return acc;
-      }, []);
+      }
 
       setNodes(newNodes);
-
-      const newEdges: Edge[] = newNodes.slice(1).map((_, index) => ({
-        id: `edge-${index}`,
-        source: `node-${index}`,
-        target: `node-${index + 1}`,
-        type: "default",
-        style: { stroke: "#333", strokeWidth: 2 },
-      }));
-
       setEdges(newEdges);
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [messages, currentChatIndex]);
+  }, [chatNodes]);
 
   // Separate effect for fitting view
   useEffect(() => {
@@ -130,8 +185,8 @@ export function ChatWindow({
 
   // Update currentChatIndex when new messages come in
   useEffect(() => {
-    setCurrentChatIndex(Math.floor((messages.length - 1) / 2));
-  }, [messages.length]);
+    setCurrentChatIndex(Math.floor((messageContext.length - 1) / 2));
+  }, [messageContext.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -139,7 +194,7 @@ export function ChatWindow({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messageContext]);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
@@ -199,8 +254,13 @@ export function ChatWindow({
         >
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
-              {messages.map((msg, idx) => (
-                <ChatMessage key={idx} message={msg} />
+              {messageContext.map((msg, idx) => (
+                <div key={idx}>
+                  <ChatMessage message={{ content: msg.query, isUser: true }} />
+                  <ChatMessage
+                    message={{ content: msg.response, isUser: false }}
+                  />
+                </div>
               ))}
               {isLoadingFirstToken && (
                 <div className="flex justify-center">
@@ -312,7 +372,7 @@ export function ChatWindow({
         {/* Resizer */}
         <div
           className={cn(
-            "bg-gray-200 hover:bg-gray-400 active:bg-gray-600",
+            "bg-muted hover:bg-muted/100 active:bg-muted/60",
             isSmallScreen ? "h-1 cursor-row-resize" : "w-1 cursor-col-resize"
           )}
           onMouseDown={handleMouseDown}
