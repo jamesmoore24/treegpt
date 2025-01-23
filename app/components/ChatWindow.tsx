@@ -61,6 +61,7 @@ export function ChatWindow({
   onBranch,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageWindowRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [currentChatIndex, setCurrentChatIndex] = useState<number>(0);
@@ -279,7 +280,7 @@ export function ChatWindow({
           }}
           className="flex flex-col"
         >
-          <div className="flex-1 p-4 overflow-y-auto">
+          <div ref={messageWindowRef} className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
               {messageContext.map((nodeId, idx) => {
                 const node = chatNodes.get(nodeId);
@@ -295,6 +296,7 @@ export function ChatWindow({
                     inInsertMode={inInsertMode}
                     isLastNode={idx === messageContext.length - 1}
                     onSelectNode={onSelectNode}
+                    messageWindowRef={messageWindowRef}
                   />
                 );
               })}

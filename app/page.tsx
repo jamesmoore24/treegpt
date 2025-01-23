@@ -166,6 +166,25 @@ export default function Home() {
       response: "",
     };
 
+    // Initialize the node in chatNodes
+    setChatNodes((prev) => {
+      const updated = new Map(prev);
+      updated.set(newChatNodeID, newNode);
+
+      // Update parent's children array if there is a parent
+      if (newNode.parentId) {
+        const parentNode = updated.get(newNode.parentId);
+        if (parentNode) {
+          updated.set(newNode.parentId, {
+            ...parentNode,
+            children: [...parentNode.children, newNode.id],
+          });
+        }
+      }
+
+      return updated;
+    });
+
     // Update messageContext with the new node's ID
     setMessageContext([...messageContext, newNode.id]);
 
@@ -220,33 +239,6 @@ export default function Home() {
           }
         }
       }
-
-      // After streaming is complete, update the chatNodes with parent-child relationships
-      setChatNodes((prev) => {
-        const updated = new Map(prev);
-
-        // Add the new node if it doesn't exist
-        if (!updated.has(newChatNodeID)) {
-          updated.set(newChatNodeID, {
-            ...newNode,
-            response: fullResponse.replace(/\n\n/g, "\n"),
-          });
-        }
-
-        // Update parent's children array if there is a parent
-        if (newNode.parentId) {
-          const parentNode = updated.get(newNode.parentId);
-          if (parentNode && !parentNode.children.includes(newNode.id)) {
-            const updatedParentNode = {
-              ...parentNode,
-              children: [...parentNode.children, newNode.id],
-            };
-            updated.set(newNode.parentId, updatedParentNode);
-          }
-        }
-
-        return updated;
-      });
 
       setIsLoading(false);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { ChatMessage } from "./ChatMessage";
 import { ChatNode } from "@/types/chat";
@@ -18,6 +18,7 @@ interface ChatMessageWithChildrenProps {
   inInsertMode: boolean;
   isLastNode: boolean;
   onSelectNode: (nodeId: string) => void;
+  messageWindowRef: React.RefObject<HTMLDivElement>;
 }
 
 export function ChatMessageWithChildren({
@@ -28,9 +29,58 @@ export function ChatMessageWithChildren({
   inInsertMode,
   isLastNode,
   onSelectNode,
+  messageWindowRef,
 }: ChatMessageWithChildrenProps) {
   const [selectedChildIndex, setSelectedChildIndex] = useState(0);
   const hasMultipleChildren = node.children.length > 1;
+  const messageRef = useRef<HTMLDivElement>(null);
+  const childrenContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll message into view when selected
+  useEffect(() => {
+    if (
+      currentChatNode?.id === nodeId &&
+      messageRef.current &&
+      messageWindowRef.current
+    ) {
+      const messageRect = messageRef.current.getBoundingClientRect();
+      const windowRect = messageWindowRef.current.getBoundingClientRect();
+
+      if (
+        messageRect.top < windowRect.top ||
+        messageRect.bottom > windowRect.bottom
+      ) {
+        messageRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
+    }
+  }, [currentChatNode?.id, nodeId]);
+
+  // Scroll children container into view when navigating
+  useEffect(() => {
+    if (
+      isLastNode &&
+      hasMultipleChildren &&
+      childrenContainerRef.current &&
+      messageWindowRef.current
+    ) {
+      const containerRect =
+        childrenContainerRef.current.getBoundingClientRect();
+      const windowRect = messageWindowRef.current.getBoundingClientRect();
+
+      if (
+        containerRect.bottom > windowRect.bottom ||
+        containerRect.top < windowRect.top
+      ) {
+        childrenContainerRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
+    }
+  }, [selectedChildIndex, isLastNode, hasMultipleChildren]);
 
   useEffect(() => {
     if (!isLastNode || !hasMultipleChildren || inInsertMode) return;
@@ -44,7 +94,6 @@ export function ChatMessageWithChildren({
       ) {
         setSelectedChildIndex((prev) => prev + 1);
       } else if (e.key === "j" && isLastNode) {
-        // Select the currently visible child node
         const selectedChildId = node.children[selectedChildIndex];
         if (selectedChildId) {
           onSelectNode(selectedChildId);
@@ -66,6 +115,7 @@ export function ChatMessageWithChildren({
   return (
     <>
       <div
+        ref={messageRef}
         key={nodeId}
         className={cn(
           "rounded-lg transition-all duration-200",
@@ -91,7 +141,10 @@ export function ChatMessageWithChildren({
           <div className="text-sm font-semibold">
             {selectedChildIndex + 1}/{node.children.length}
           </div>
-          <div className="flex items-center justify-between mt-4 gap-2 border-2 border-dotted border-gray-300 rounded-lg p-4">
+          <div
+            ref={childrenContainerRef}
+            className="flex items-center justify-between mt-4 gap-2 border-2 border-dotted border-gray-300 rounded-lg p-4"
+          >
             {selectedChildIndex !== 0 && (
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
