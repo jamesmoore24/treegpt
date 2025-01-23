@@ -17,7 +17,7 @@ import { ChatNode } from "@/types/chat";
 
 export default function Home() {
   const [step, setStep] = useState(1);
-  const [messageContext, setMessageContext] = useState<ChatNode[]>([]);
+  const [messageContext, setMessageContext] = useState<string[]>([]);
   const [chatNodes, setChatNodes] = useState<Map<string, ChatNode>>(new Map());
   const [currentChatNode, setCurrentChatNode] = useState<ChatNode | null>(null);
   const [input, setInput] = useState("");
@@ -48,27 +48,46 @@ export default function Home() {
       } else if (e.key === "Escape" && inInsertMode) {
         setInInsertMode(false);
         inputRef.current?.blur();
-        setCurrentChatNode(messageContext[messageContext.length - 1]);
+        const lastNodeId = messageContext[messageContext.length - 1];
+        if (lastNodeId) {
+          const lastNode = chatNodes.get(lastNodeId);
+          if (lastNode) {
+            setCurrentChatNode(lastNode);
+          }
+        }
       } else if (!inInsertMode && currentChatNode) {
         if (e.key === "k") {
           // Navigate to parent
-          console.log("Navigating to parent", currentChatNode);
           const parentNode = currentChatNode.parentId
             ? chatNodes.get(currentChatNode.parentId)
             : null;
           if (parentNode) {
-            setCurrentChatNode(parentNode);
+            handleSelectNode(parentNode.id);
           }
+        } else if (e.key === "j") {
+          // Navigate to only child
+          if (currentChatNode.children.length === 1) {
+            const childId = currentChatNode.children[0];
+            handleSelectNode(childId);
+          }
+        } else if (e.key === "b") {
+          // Handle branching
+          handleBranch();
         } else {
-          // Check if key is a number 1-9
+          // Check if key is a number 1-9 for multiple children
           const num = parseInt(e.key);
-          if (!isNaN(num) && num >= 1 && num <= 9) {
+          if (
+            !isNaN(num) &&
+            num >= 1 &&
+            num <= 9 &&
+            currentChatNode.children.length > 1
+          ) {
             const childIndex = num - 1;
             const childId = currentChatNode.children[childIndex];
             if (childId) {
               const childNode = chatNodes.get(childId);
               if (childNode) {
-                setCurrentChatNode(childNode);
+                handleSelectNode(childNode.id);
               }
             }
           }
@@ -78,7 +97,7 @@ export default function Home() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [inInsertMode, currentChatNode, chatNodes]);
+  }, [inInsertMode, currentChatNode, chatNodes, messageContext]);
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {
@@ -107,7 +126,9 @@ export default function Home() {
 
   const handleInputBlur = () => {
     setInInsertMode(false);
-    setCurrentChatNode(messageContext[messageContext.length - 1]);
+    const lastNodeId = messageContext[messageContext.length - 1];
+    const lastNode = lastNodeId ? chatNodes.get(lastNodeId) : null;
+    setCurrentChatNode(lastNode || null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,31 +138,36 @@ export default function Home() {
     setIsLoading(true);
     setIsLoadingFirstToken(true);
     setInput("");
-    const userMessage = { content: input, isUser: true };
+
+    // Create messages array for API call
     const newMessages = [
-      ...messageContext.flatMap((node) => [
-        { content: node.query, isUser: true },
-        { content: node.response, isUser: false },
-      ]),
-      userMessage,
+      ...messageContext.flatMap((nodeId) => {
+        const node = chatNodes.get(nodeId);
+        if (!node) return [];
+        return [
+          { content: node.query, isUser: true },
+          { content: node.response, isUser: false },
+        ];
+      }),
+      { content: input, isUser: true },
     ];
 
     const newChatNodeID = `${currentChatId}-${chatNodes.size}`;
 
-    // Create the new node object that we'll use for both states
+    // Create the new node object
     const newNode: ChatNode = {
       id: newChatNodeID,
       parentId:
         messageContext.length > 0
-          ? messageContext[messageContext.length - 1].id
+          ? messageContext[messageContext.length - 1]
           : null,
       children: [],
       query: input,
       response: "",
     };
 
-    // Update messageContext with the new node
-    setMessageContext([...messageContext, newNode]);
+    // Update messageContext with the new node's ID
+    setMessageContext([...messageContext, newNode.id]);
 
     try {
       const response = await fetch("/api/chat-stream", {
@@ -171,21 +197,23 @@ export default function Home() {
         const chunk = decoder.decode(value);
         setIsLoadingFirstToken(false);
 
-        // Handle each chunk as a complete JSON object
         const lines = chunk.split("\n").filter(Boolean);
         for (const line of lines) {
           try {
             const update = JSON.parse(line);
             fullResponse += update.content;
 
-            // Update the node's response in messageContext
-            setMessageContext((prev) => {
-              const messages = [...prev];
-              messages[messages.length - 1] = {
-                ...messages[messages.length - 1],
-                response: fullResponse.replace(/\n\n/g, "\n"),
-              };
-              return messages;
+            // Update the node's response in chatNodes
+            setChatNodes((prev) => {
+              const updated = new Map(prev);
+              const nodeToUpdate = updated.get(newChatNodeID);
+              if (nodeToUpdate) {
+                updated.set(newChatNodeID, {
+                  ...nodeToUpdate,
+                  response: fullResponse.replace(/\n\n/g, "\n"),
+                });
+              }
+              return updated;
             });
           } catch (e) {
             console.error("Error parsing chunk:", e);
@@ -261,6 +289,57 @@ export default function Home() {
     }
   };
 
+  const handleSelectNode = (nodeId: string) => {
+    const node = chatNodes.get(nodeId);
+    if (!node) return;
+
+    setCurrentChatNode(node);
+
+    // Build path to root through parent nodes
+    const pathToRoot: string[] = [];
+    let currentNodeId = nodeId;
+
+    while (currentNodeId) {
+      pathToRoot.unshift(currentNodeId);
+      const currentNode = chatNodes.get(currentNodeId);
+      currentNodeId = currentNode?.parentId || "";
+    }
+
+    // Follow single-child path downwards
+    let lastNodeId = nodeId;
+    let lastNode = chatNodes.get(lastNodeId);
+    while (lastNode && lastNode.children.length === 1) {
+      const childId = lastNode.children[0];
+      const childNode = chatNodes.get(childId);
+      if (!childNode) break;
+      pathToRoot.push(childId);
+      lastNodeId = childId;
+      lastNode = childNode;
+    }
+    setMessageContext(pathToRoot);
+  };
+
+  const handleBranch = () => {
+    if (!currentChatNode || inInsertMode) return;
+
+    // If no children, just enter insert mode
+    if (currentChatNode.children.length === 0) {
+      setInInsertMode(true);
+      inputRef.current?.focus();
+      return;
+    }
+
+    // If has children, truncate messageContext at current node and enter insert mode
+    const currentNodeIndex = messageContext.findIndex(
+      (nodeId) => nodeId === currentChatNode.id
+    );
+    if (currentNodeIndex !== -1) {
+      setMessageContext(messageContext.slice(0, currentNodeIndex + 1));
+      setInInsertMode(true);
+      inputRef.current?.focus();
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header
@@ -294,7 +373,8 @@ export default function Home() {
           isLoadingFirstToken={isLoadingFirstToken}
           inputRef={inputRef}
           inInsertMode={inInsertMode}
-          onSelectNode={setCurrentChatNode}
+          onSelectNode={handleSelectNode}
+          onBranch={handleBranch}
         />
       </main>
     </div>

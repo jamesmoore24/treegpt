@@ -7,7 +7,7 @@ export type ChatHistory = {
   id: string;
   title: string;
   timestamp: Date;
-  messageContext: ChatNode[];
+  messageContext: string[];
   chatNodes: Map<string, ChatNode>;
 };
 

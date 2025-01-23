@@ -3,7 +3,14 @@ import { ChatMessage } from "./ChatMessage";
 import { Message } from "@/types/chat";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { ArrowUp, ChevronUp, MessageSquare } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  GitBranch,
+  MessageSquare,
+} from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
 import ReactFlow from "reactflow";
@@ -12,9 +19,12 @@ import { ChatNode } from "@/types/chat";
 import { ChatGraph } from "./ChatGraph";
 import { Textarea } from "./ui/textarea";
 import { debounce } from "lodash";
+import { TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip } from "./ui/tooltip";
+import { ChatMessageWithChildren } from "./ChatMessageWithChildren";
 
 interface ChatWindowProps {
-  messageContext: ChatNode[];
+  messageContext: string[];
   chatNodes: Map<string, ChatNode>;
   currentChatId: string;
   currentChatNode: ChatNode | null;
@@ -28,7 +38,8 @@ interface ChatWindowProps {
   isLoadingFirstToken: boolean;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   inInsertMode: boolean;
-  onSelectNode: (node: ChatNode) => void;
+  onSelectNode: (nodeId: string) => void;
+  onBranch: () => void;
 }
 
 export function ChatWindow({
@@ -47,6 +58,7 @@ export function ChatWindow({
   inputRef,
   inInsertMode,
   onSelectNode,
+  onBranch,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -96,10 +108,7 @@ export function ChatWindow({
       const levels: Map<string, number> = new Map();
 
       // Start with root node
-      console.log("chatNodes", chatNodes);
-      console.log("currentChatId", currentChatId);
       console.log("messageContext", messageContext);
-
       const rootNode = chatNodes.get(`${currentChatId}-0`);
       if (rootNode) {
         queue.push(rootNode);
@@ -119,7 +128,7 @@ export function ChatWindow({
 
         // Check if node is in message context
         const isInMessageContext = messageContext.some(
-          (msg) => msg.id === node.id
+          (msg) => msg === node.id
         );
 
         // Add node
@@ -165,7 +174,11 @@ export function ChatWindow({
               target: childId,
               type: "default",
               style: {
-                stroke: isInMessageContext ? "#ff0000" : "#333",
+                stroke:
+                  isInMessageContext &&
+                  messageContext.some((msg) => msg === childId)
+                    ? "#ff0000"
+                    : "#333",
                 strokeWidth: 2,
               },
             });
@@ -268,31 +281,23 @@ export function ChatWindow({
         >
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
-              {messageContext.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "rounded-lg transition-all duration-200",
-                    currentChatNode?.id === msg.id
-                      ? "bg-yellow-100/20 border-2 border-yellow-200/30 rounded-lg p-4"
-                      : "",
-                    !inInsertMode && currentChatNode?.id !== msg.id
-                      ? "cursor-pointer hover:bg-accent/50"
-                      : "",
-                    !inInsertMode ? "cursor-pointer" : ""
-                  )}
-                  onClick={() => {
-                    if (!inInsertMode) {
-                      onSelectNode(msg);
-                    }
-                  }}
-                >
-                  <ChatMessage message={{ content: msg.query, isUser: true }} />
-                  <ChatMessage
-                    message={{ content: msg.response, isUser: false }}
+              {messageContext.map((nodeId, idx) => {
+                const node = chatNodes.get(nodeId);
+                if (!node) return null;
+
+                return (
+                  <ChatMessageWithChildren
+                    key={nodeId}
+                    nodeId={nodeId}
+                    node={node}
+                    chatNodes={chatNodes}
+                    currentChatNode={currentChatNode}
+                    inInsertMode={inInsertMode}
+                    isLastNode={idx === messageContext.length - 1}
+                    onSelectNode={onSelectNode}
                   />
-                </div>
-              ))}
+                );
+              })}
               {isLoadingFirstToken && (
                 <div className="flex justify-center">
                   <div className="animate-bounce space-x-1">
@@ -388,16 +393,39 @@ export function ChatWindow({
                     )}
                   </div>
                 </div>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <div className="h-4 w-4 relative">
-                      <div className="absolute inset-0 border-2 border-current rounded-sm" />
-                      <div className="absolute inset-[30%] bg-current rounded-full" />
-                    </div>
-                  ) : (
-                    <ArrowUp className="h-4 w-4" />
+                <div className="flex gap-2 items-center">
+                  {!inInsertMode && (
+                    <TooltipProvider>
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onBranch}
+                          >
+                            <GitBranch className="h-4 w-4 relative" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            Press <kbd>b</kbd> to branch
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
-                </Button>
+                  <Button type="submit" disabled={isLoading} size="sm">
+                    {isLoading ? (
+                      <div className="h-4 w-4 relative">
+                        <div className="absolute inset-0 border-2 border-current rounded-sm" />
+                        <div className="absolute inset-[30%] bg-current rounded-full" />
+                      </div>
+                    ) : (
+                      <ArrowUp className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
