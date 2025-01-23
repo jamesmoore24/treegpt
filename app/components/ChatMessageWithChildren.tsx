@@ -43,6 +43,12 @@ export function ChatMessageWithChildren({
         selectedChildIndex < node.children.length - 1
       ) {
         setSelectedChildIndex((prev) => prev + 1);
+      } else if (e.key === "j" && isLastNode) {
+        // Select the currently visible child node
+        const selectedChildId = node.children[selectedChildIndex];
+        if (selectedChildId) {
+          onSelectNode(selectedChildId);
+        }
       }
     };
 
@@ -53,7 +59,8 @@ export function ChatMessageWithChildren({
     hasMultipleChildren,
     inInsertMode,
     selectedChildIndex,
-    node.children.length,
+    node.children,
+    onSelectNode,
   ]);
 
   return (
