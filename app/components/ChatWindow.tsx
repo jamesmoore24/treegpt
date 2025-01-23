@@ -17,24 +17,36 @@ interface ChatWindowProps {
   messageContext: ChatNode[];
   chatNodes: Map<string, ChatNode>;
   currentChatId: string;
+  currentChatNode: ChatNode | null;
   isSidebarOpen: boolean;
   input: string;
   onInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onInputFocus: () => void;
+  onInputBlur: () => void;
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
   isLoadingFirstToken: boolean;
+  inputRef: React.RefObject<HTMLTextAreaElement>;
+  inInsertMode: boolean;
+  onSelectNode: (node: ChatNode) => void;
 }
 
 export function ChatWindow({
   messageContext,
   chatNodes,
   currentChatId,
+  currentChatNode,
   isSidebarOpen,
   input,
   onInputChange,
+  onInputFocus,
+  onInputBlur,
   onSubmit,
   isLoading,
   isLoadingFirstToken,
+  inputRef,
+  inInsertMode,
+  onSelectNode,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -131,9 +143,11 @@ export function ChatWindow({
             ),
           },
           style: {
-            width: 220,
+            width: 250,
             padding: "10px",
             border: isInMessageContext ? "2px solid #ff0000" : undefined,
+            backgroundColor:
+              currentChatNode?.id === node.id ? "#ffffd0" : undefined,
           },
         });
 
@@ -174,7 +188,7 @@ export function ChatWindow({
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [chatNodes]);
+  }, [chatNodes, currentChatNode, inInsertMode]);
 
   // Separate effect for fitting view
   useEffect(() => {
@@ -255,7 +269,24 @@ export function ChatWindow({
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-4">
               {messageContext.map((msg, idx) => (
-                <div key={idx}>
+                <div
+                  key={idx}
+                  className={cn(
+                    "rounded-lg transition-all duration-200",
+                    currentChatNode?.id === msg.id
+                      ? "bg-yellow-100/20 border-2 border-yellow-200/30 rounded-lg p-4"
+                      : "",
+                    !inInsertMode && currentChatNode?.id !== msg.id
+                      ? "cursor-pointer hover:bg-accent/50"
+                      : "",
+                    !inInsertMode ? "cursor-pointer" : ""
+                  )}
+                  onClick={() => {
+                    if (!inInsertMode) {
+                      onSelectNode(msg);
+                    }
+                  }}
+                >
                   <ChatMessage message={{ content: msg.query, isUser: true }} />
                   <ChatMessage
                     message={{ content: msg.response, isUser: false }}
@@ -277,8 +308,11 @@ export function ChatWindow({
           <div className="border-t">
             <form onSubmit={onSubmit} className="p-4 flex flex-col gap-2">
               <Textarea
+                ref={inputRef}
                 value={input}
                 onChange={onInputChange}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
                 placeholder="Type your message..."
                 className="flex-1"
                 rows={

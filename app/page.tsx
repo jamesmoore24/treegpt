@@ -19,7 +19,9 @@ export default function Home() {
   const [step, setStep] = useState(1);
   const [messageContext, setMessageContext] = useState<ChatNode[]>([]);
   const [chatNodes, setChatNodes] = useState<Map<string, ChatNode>>(new Map());
+  const [currentChatNode, setCurrentChatNode] = useState<ChatNode | null>(null);
   const [input, setInput] = useState("");
+  const [inInsertMode, setInInsertMode] = useState(false);
   const [queriesLeft, setQueriesLeft] = useState(10);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
@@ -27,6 +29,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!initialized.current && chatHistory.length === 0) {
@@ -34,6 +37,48 @@ export default function Home() {
       handleNewChat();
     }
   }, [chatHistory.length]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "i" && !inInsertMode && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setInInsertMode(true);
+        inputRef.current?.focus();
+        setCurrentChatNode(null);
+      } else if (e.key === "Escape" && inInsertMode) {
+        setInInsertMode(false);
+        inputRef.current?.blur();
+        setCurrentChatNode(messageContext[messageContext.length - 1]);
+      } else if (!inInsertMode && currentChatNode) {
+        if (e.key === "k") {
+          // Navigate to parent
+          console.log("Navigating to parent", currentChatNode);
+          const parentNode = currentChatNode.parentId
+            ? chatNodes.get(currentChatNode.parentId)
+            : null;
+          if (parentNode) {
+            setCurrentChatNode(parentNode);
+          }
+        } else {
+          // Check if key is a number 1-9
+          const num = parseInt(e.key);
+          if (!isNaN(num) && num >= 1 && num <= 9) {
+            const childIndex = num - 1;
+            const childId = currentChatNode.children[childIndex];
+            if (childId) {
+              const childNode = chatNodes.get(childId);
+              if (childNode) {
+                setCurrentChatNode(childNode);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [inInsertMode, currentChatNode, chatNodes]);
 
   const handleNewChat = () => {
     const newChat: ChatHistory = {
@@ -55,6 +100,16 @@ export default function Home() {
     setInput(e.target.value);
   };
 
+  const handleInputFocus = () => {
+    setInInsertMode(true);
+    setCurrentChatNode(null);
+  };
+
+  const handleInputBlur = () => {
+    setInInsertMode(false);
+    setCurrentChatNode(messageContext[messageContext.length - 1]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -73,6 +128,21 @@ export default function Home() {
 
     const newChatNodeID = `${currentChatId}-${chatNodes.size}`;
 
+    // Create the new node object that we'll use for both states
+    const newNode: ChatNode = {
+      id: newChatNodeID,
+      parentId:
+        messageContext.length > 0
+          ? messageContext[messageContext.length - 1].id
+          : null,
+      children: [],
+      query: input,
+      response: "",
+    };
+
+    // Update messageContext with the new node
+    setMessageContext([...messageContext, newNode]);
+
     try {
       const response = await fetch("/api/chat-stream", {
         method: "POST",
@@ -86,20 +156,6 @@ export default function Home() {
       });
 
       if (!response.ok) throw new Error(response.statusText);
-
-      // Add empty assistant message that we'll stream into
-      const emptyMessages: ChatNode[] = [
-        ...messageContext,
-        {
-          id: newChatNodeID,
-          parentId: null,
-          children: [],
-          query: input,
-          response: "",
-        },
-      ];
-
-      setMessageContext(emptyMessages);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -121,11 +177,12 @@ export default function Home() {
           try {
             const update = JSON.parse(line);
             fullResponse += update.content;
+
+            // Update the node's response in messageContext
             setMessageContext((prev) => {
               const messages = [...prev];
-              const lastMessage = messages[messages.length - 1];
               messages[messages.length - 1] = {
-                ...lastMessage,
+                ...messages[messages.length - 1],
                 response: fullResponse.replace(/\n\n/g, "\n"),
               };
               return messages;
@@ -135,39 +192,37 @@ export default function Home() {
           }
         }
       }
-      setIsLoading(false);
 
-      // Add the new node to chatNodes
+      // After streaming is complete, update the chatNodes with parent-child relationships
       setChatNodes((prev) => {
-        const newNode: ChatNode = {
-          id: newChatNodeID,
-          parentId: null,
-          children: [],
-          query: input,
-          response: fullResponse,
-        };
-
-        // Create a new Map with the existing entries
         const updated = new Map(prev);
 
-        if (messageContext.length > 0) {
-          const lastMessageId = messageContext[messageContext.length - 1].id;
-          const parentNode = updated.get(lastMessageId);
-          if (parentNode) {
+        // Add the new node if it doesn't exist
+        if (!updated.has(newChatNodeID)) {
+          updated.set(newChatNodeID, {
+            ...newNode,
+            response: fullResponse.replace(/\n\n/g, "\n"),
+          });
+        }
+
+        // Update parent's children array if there is a parent
+        if (newNode.parentId) {
+          const parentNode = updated.get(newNode.parentId);
+          if (parentNode && !parentNode.children.includes(newNode.id)) {
             const updatedParentNode = {
               ...parentNode,
               children: [...parentNode.children, newNode.id],
             };
-            updated.set(lastMessageId, updatedParentNode);
-            newNode.parentId = parentNode.id;
+            updated.set(newNode.parentId, updatedParentNode);
           }
         }
 
-        updated.set(newNode.id, newNode);
         return updated;
       });
 
-      console.log(fullResponse);
+      setIsLoading(false);
+
+      // Generate summary for first message
       if (currentChatId && messageContext.length === 0) {
         try {
           const summaryResponse = await fetch("/api/chat-summary", {
@@ -228,12 +283,18 @@ export default function Home() {
           messageContext={messageContext}
           chatNodes={chatNodes}
           currentChatId={currentChatId}
+          currentChatNode={currentChatNode}
           isSidebarOpen={isSidebarOpen}
           input={input}
           onInputChange={handleInputChange}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
           onSubmit={handleSubmit}
           isLoading={isLoading}
           isLoadingFirstToken={isLoadingFirstToken}
+          inputRef={inputRef}
+          inInsertMode={inInsertMode}
+          onSelectNode={setCurrentChatNode}
         />
       </main>
     </div>
