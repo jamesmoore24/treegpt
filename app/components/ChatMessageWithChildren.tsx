@@ -138,8 +138,10 @@ export function ChatMessageWithChildren({
           }
         }}
       >
-        <ChatMessage message={{ content: node.query, isUser: true }} />
-        <ChatMessage message={{ content: node.response, isUser: false }} />
+        <div className="space-y-4">
+          <ChatMessage message={{ content: node.query, isUser: true }} />
+          <ChatMessage message={{ content: node.response, isUser: false }} />
+        </div>
       </div>
       {isLastNode && hasMultipleChildren && (
         <>

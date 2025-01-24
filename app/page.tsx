@@ -14,6 +14,8 @@ import { ChatWindow } from "@/app/components/ChatWindow";
 import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
 import { ChatNode } from "@/types/chat";
+import { ModelType } from "@/app/components/ChatWindow";
+import { TokenUsage } from "@/types/tokenUsage";
 
 export default function Home() {
   const [step, setStep] = useState(1);
@@ -30,6 +32,11 @@ export default function Home() {
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelType>("gpt-4");
+  const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
+    new Map()
+  );
+  const [showReasoning, setShowReasoning] = useState(false);
 
   useEffect(() => {
     if (!initialized.current && chatHistory.length === 0) {
@@ -198,6 +205,8 @@ export default function Home() {
             role: msg.isUser ? "user" : "assistant",
             content: msg.content,
           })),
+          model: selectedModel,
+          showReasoning,
         }),
       });
 
@@ -209,6 +218,7 @@ export default function Home() {
       if (!reader) throw new Error("No reader available");
 
       let fullResponse = "";
+      let fullReasoning = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -221,20 +231,58 @@ export default function Home() {
         for (const line of lines) {
           try {
             const update = JSON.parse(line);
-            fullResponse += update.content;
 
-            // Update the node's response in chatNodes
-            setChatNodes((prev) => {
-              const updated = new Map(prev);
-              const nodeToUpdate = updated.get(newChatNodeID);
-              if (nodeToUpdate) {
+            // Handle reasoning content
+            if (update.reasoning) {
+              fullReasoning += update.reasoning;
+              // Update the node's response in chatNodes with reasoning
+              setChatNodes((prev) => {
+                const updated = new Map(prev);
+                const nodeToUpdate = updated.get(newChatNodeID);
+                if (nodeToUpdate) {
+                  updated.set(newChatNodeID, {
+                    ...nodeToUpdate,
+                    response:
+                      `Reasoning:\n${fullReasoning}\n\nResponse:\n${fullResponse}`.replace(
+                        /\n\n/g,
+                        "\n"
+                      ),
+                  });
+                }
+                return updated;
+              });
+            } else if (update.content) {
+              fullResponse += update.content;
+              // Update the node's response in chatNodes
+              setChatNodes((prev) => {
+                const updated = new Map(prev);
+                const nodeToUpdate = updated.get(newChatNodeID);
+                if (nodeToUpdate) {
+                  const response =
+                    showReasoning && fullReasoning
+                      ? `Reasoning:\n${fullReasoning}\n\nResponse:\n${fullResponse}`
+                      : fullResponse;
+                  updated.set(newChatNodeID, {
+                    ...nodeToUpdate,
+                    response: response.replace(/\n\n/g, "\n"),
+                  });
+                }
+                return updated;
+              });
+            }
+
+            // Update token usage if available
+            if (update.modelInfo?.usage) {
+              setTokenUsage((prev) => {
+                const updated = new Map(prev);
                 updated.set(newChatNodeID, {
-                  ...nodeToUpdate,
-                  response: fullResponse.replace(/\n\n/g, "\n"),
+                  inputTokens: update.modelInfo.usage.inputTokens,
+                  outputTokens: update.modelInfo.usage.outputTokens,
+                  cached: update.modelInfo.usage.cached,
                 });
-              }
-              return updated;
-            });
+                return updated;
+              });
+            }
           } catch (e) {
             console.error("Error parsing chunk:", e);
           }
@@ -368,6 +416,11 @@ export default function Home() {
           inInsertMode={inInsertMode}
           onSelectNode={handleSelectNode}
           onBranch={handleBranch}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          tokenUsage={tokenUsage}
+          showReasoning={showReasoning}
+          onToggleReasoning={() => setShowReasoning(!showReasoning)}
         />
       </main>
     </div>

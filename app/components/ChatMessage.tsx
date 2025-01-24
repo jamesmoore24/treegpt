@@ -7,9 +7,13 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { ComponentType } from "react";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 interface ChatMessageProps {
-  message: Message;
+  message: Message & {
+    reasoning?: string;
+  };
 }
 
 const MarkdownComponents: Record<string, ComponentType<any>> = {
@@ -182,6 +186,8 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
 };
 
 export function ChatMessage({ message }: ChatMessageProps) {
+  const [isReasoningCollapsed, setIsReasoningCollapsed] = useState(false);
+
   return (
     <div
       className={cn("flex", message.isUser ? "justify-end" : "justify-start")}
@@ -192,6 +198,32 @@ export function ChatMessage({ message }: ChatMessageProps) {
           message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
         )}
       >
+        {message.reasoning && (
+          <div className="mb-3">
+            <button
+              onClick={() => setIsReasoningCollapsed(!isReasoningCollapsed)}
+              className="flex items-center gap-2 text-sm text-muted-foreground/70 hover:text-muted-foreground mb-2"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  isReasoningCollapsed ? "-rotate-90" : ""
+                )}
+              />
+              Reasoning
+            </button>
+            {!isReasoningCollapsed && (
+              <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-2">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={MarkdownComponents}
+                >
+                  {message.reasoning}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+        )}
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={MarkdownComponents}

@@ -22,6 +22,25 @@ import { debounce } from "lodash";
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Tooltip } from "./ui/tooltip";
 import { ChatMessageWithChildren } from "./ChatMessageWithChildren";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
+
+export type ModelType = "gpt-4" | "deepseek-chat" | "deepseek-reasoner";
+
+interface ModelConfig {
+  name: string;
+  pricing: {
+    inputTokensCached: number; // Cost per 1M tokens
+    inputTokens: number; // Cost per 1M tokens
+    outputTokens: number; // Cost per 1M tokens
+  };
+}
+
+interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cached: boolean;
+}
 
 interface ChatWindowProps {
   messageContext: string[];
@@ -40,6 +59,11 @@ interface ChatWindowProps {
   inInsertMode: boolean;
   onSelectNode: (nodeId: string) => void;
   onBranch: () => void;
+  selectedModel: ModelType;
+  onModelChange: (model: ModelType) => void;
+  tokenUsage: Map<string, TokenUsage>;
+  showReasoning: boolean;
+  onToggleReasoning: () => void;
 }
 
 export function ChatWindow({
@@ -59,6 +83,11 @@ export function ChatWindow({
   inInsertMode,
   onSelectNode,
   onBranch,
+  selectedModel,
+  onModelChange,
+  tokenUsage,
+  showReasoning,
+  onToggleReasoning,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageWindowRef = useRef<HTMLDivElement>(null);
@@ -70,8 +99,35 @@ export function ChatWindow({
   const [splitPosition, setSplitPosition] = useState(50); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("GPT-4");
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+
+  // Model configurations with detailed pricing
+  const modelConfigs: Record<ModelType, ModelConfig> = {
+    "gpt-4": {
+      name: "GPT-4",
+      pricing: {
+        inputTokensCached: 1.25,
+        inputTokens: 2.5,
+        outputTokens: 10.0,
+      },
+    },
+    "deepseek-chat": {
+      name: "DeepSeek Chat",
+      pricing: {
+        inputTokensCached: 0.014,
+        inputTokens: 0.14,
+        outputTokens: 0.28,
+      },
+    },
+    "deepseek-reasoner": {
+      name: "DeepSeek Reasoner",
+      pricing: {
+        inputTokensCached: 0.14,
+        inputTokens: 0.55,
+        outputTokens: 2.19,
+      },
+    },
+  };
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -290,6 +346,41 @@ export function ChatWindow({
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
+  // Calculate estimated cost for the current request
+  const calculateEstimatedCost = (inputTokens: number) => {
+    const pricing = modelConfigs[selectedModel].pricing;
+    // Assume worst case (not cached) for estimates
+    return (inputTokens / 1_000_000) * pricing.inputTokens;
+  };
+
+  // Calculate total cost for a completed request
+  const calculateActualCost = (usage: TokenUsage) => {
+    const pricing = modelConfigs[selectedModel].pricing;
+    return (
+      (usage.inputTokens / 1_000_000) *
+        (usage.cached ? pricing.inputTokensCached : pricing.inputTokens) +
+      (usage.outputTokens / 1_000_000) * pricing.outputTokens
+    );
+  };
+
+  // Calculate total usage and cost
+  const getTotalUsageAndCost = () => {
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCost = 0;
+
+    messageContext.forEach((nodeId) => {
+      const usage = tokenUsage.get(nodeId);
+      if (usage) {
+        totalInputTokens += usage.inputTokens;
+        totalOutputTokens += usage.outputTokens;
+        totalCost += calculateActualCost(usage);
+      }
+    });
+
+    return { totalInputTokens, totalOutputTokens, totalCost };
+  };
+
   return (
     <div
       className={cn(
@@ -372,10 +463,6 @@ export function ChatWindow({
               />
               <div className="flex items-center justify-between">
                 <div className="flex gap-4 items-center text-sm text-muted-foreground">
-                  <span>Tokens: ~{Math.ceil(input.length / 4)}</span>
-                  <span>
-                    Est. Cost: ${((input.length / 4) * 0.000015).toFixed(6)}
-                  </span>
                   <div className="relative">
                     <Button
                       type="button"
@@ -384,7 +471,7 @@ export function ChatWindow({
                       className="h-8"
                       onClick={() => setModelMenuOpen(!modelMenuOpen)}
                     >
-                      {selectedModel || "GPT-4"}
+                      {modelConfigs[selectedModel].name}
                       <ChevronUp
                         className={cn(
                           "ml-2 h-4 w-4",
@@ -393,33 +480,107 @@ export function ChatWindow({
                       />
                     </Button>
                     {modelMenuOpen && (
-                      <div className="absolute bottom-full mb-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                      <div className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
                         <div className="py-1" role="menu">
-                          {[
-                            "GPT-4o-mini",
-                            "GPT-4o",
-                            "GPT-3.5",
-                            "Claude",
-                            "Gemini",
-                          ].map((model) => (
-                            <button
-                              key={model}
-                              className={cn(
-                                "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
-                                selectedModel === model ? "bg-gray-50" : ""
-                              )}
-                              role="menuitem"
-                              onClick={() => {
-                                setSelectedModel(model);
-                                setModelMenuOpen(false);
-                              }}
-                            >
-                              {model}
-                            </button>
-                          ))}
+                          {(Object.keys(modelConfigs) as ModelType[]).map(
+                            (model) => (
+                              <button
+                                key={model}
+                                className={cn(
+                                  "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
+                                  selectedModel === model ? "bg-gray-50" : ""
+                                )}
+                                role="menuitem"
+                                onClick={() => {
+                                  onModelChange(model);
+                                  setModelMenuOpen(false);
+                                }}
+                              >
+                                <div>{modelConfigs[model].name}</div>
+                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                  <div>
+                                    Input (cached): $
+                                    {
+                                      modelConfigs[model].pricing
+                                        .inputTokensCached
+                                    }
+                                    /1M tokens
+                                  </div>
+                                  <div>
+                                    Input: $
+                                    {modelConfigs[model].pricing.inputTokens}/1M
+                                    tokens
+                                  </div>
+                                  <div>
+                                    Output: $
+                                    {modelConfigs[model].pricing.outputTokens}
+                                    /1M tokens
+                                  </div>
+                                </div>
+                                {model === "deepseek-reasoner" && (
+                                  <div className="mt-2 flex items-center space-x-2 border-t pt-2">
+                                    <Switch
+                                      id="show-reasoning"
+                                      checked={showReasoning}
+                                      onCheckedChange={(checked) => {
+                                        onToggleReasoning();
+                                        if (!checked) {
+                                          setModelMenuOpen(false);
+                                        }
+                                      }}
+                                    />
+                                    <Label
+                                      htmlFor="show-reasoning"
+                                      className="text-xs"
+                                    >
+                                      Show Reasoning Process
+                                    </Label>
+                                  </div>
+                                )}
+                              </button>
+                            )
+                          )}
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium">Tokens</span>
+                    {(() => {
+                      const { totalInputTokens, totalOutputTokens } =
+                        getTotalUsageAndCost();
+                      const estimatedInputTokens = Math.ceil(input.length / 4);
+                      return (
+                        <>
+                          <span className="text-xs">
+                            History: {totalInputTokens + totalOutputTokens} (
+                            {totalInputTokens} in + {totalOutputTokens} out)
+                          </span>
+                          <span className="text-xs">
+                            Next: ~{estimatedInputTokens} input tokens
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium">Cost</span>
+                    {(() => {
+                      const { totalCost } = getTotalUsageAndCost();
+                      const estimatedInputTokens = Math.ceil(input.length / 4);
+                      const estimatedNextCost =
+                        calculateEstimatedCost(estimatedInputTokens);
+                      return (
+                        <>
+                          <span className="text-xs">
+                            Total: ${totalCost.toFixed(6)}
+                          </span>
+                          <span className="text-xs">
+                            Est. Next: ${estimatedNextCost.toFixed(6)}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex gap-2 items-center">
