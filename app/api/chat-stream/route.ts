@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getOpenAIInstance, getDeepSeekInstance } from "@/app/lib/openai";
 import { ModelType } from "@/app/components/ChatWindow";
+import OpenAI from "openai";
+import { type Stream } from "openai/streaming";
+import { ModelInfo, TokenUsage } from "@/types/tokenUsage";
+import { DeepSeekCompletionUsage, DeepSeekDelta } from "@/types/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +19,8 @@ export async function POST(request: Request) {
       );
     }
 
-    let response;
-    let modelInfo;
+    let response: Stream<OpenAI.ChatCompletionChunk>;
+    let modelInfo: ModelInfo;
     let isCached = false;
 
     switch (model as ModelType) {
@@ -90,8 +94,10 @@ export async function POST(request: Request) {
         let reasoningContent = "";
 
         for await (const chunk of response) {
-          const text = chunk.choices[0]?.delta?.content || "";
-          const reasoning = chunk.choices[0]?.delta?.reasoning_content;
+          const delta = chunk.choices[0]?.delta as DeepSeekDelta;
+          const text = delta.content || "";
+          const reasoning = delta.reasoning_content;
+          const usage = chunk.usage as DeepSeekCompletionUsage;
 
           // Handle reasoning content for DeepSeek Reasoner
           if (model === "deepseek-reasoner" && reasoning) {
@@ -107,6 +113,7 @@ export async function POST(request: Request) {
                     usage: {
                       ...modelInfo.usage,
                       outputTokens: outputTokens + reasoningTokens,
+                      reasoningTokens,
                     },
                   },
                 }) + "\n"
@@ -118,23 +125,22 @@ export async function POST(request: Request) {
           if (text) {
             outputTokens += Math.ceil(text.length / 4);
 
-            if (chunk.usage) {
-              console.log(chunk.usage);
+            if (usage) {
               modelInfo.usage = {
                 ...modelInfo.usage,
-                inputTokens: chunk.usage.prompt_tokens || 0,
+                inputTokens: usage.prompt_tokens || 0,
                 outputTokens: outputTokens + reasoningTokens,
-                cached: chunk.usage.prompt_cache_hit_tokens > 0,
-                totalTokens: chunk.usage.total_tokens || 0,
-                reasoningTokens: reasoningTokens,
-                cacheHitTokens: chunk.usage.prompt_cache_hit_tokens || 0,
-                cacheMissTokens: chunk.usage.prompt_cache_miss_tokens || 0,
+                cached: (usage.prompt_cache_hit_tokens || 0) > 0,
+                totalTokens: usage.total_tokens || 0,
+                reasoningTokens,
+                cacheHitTokens: usage.prompt_cache_hit_tokens || 0,
+                cacheMissTokens: usage.prompt_cache_miss_tokens || 0,
               };
             } else {
               modelInfo.usage = {
                 ...modelInfo.usage,
                 outputTokens: outputTokens + reasoningTokens,
-                reasoningTokens: reasoningTokens,
+                reasoningTokens,
               };
             }
 

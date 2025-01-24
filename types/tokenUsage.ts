@@ -7,3 +7,8 @@ export interface TokenUsage {
   cacheHitTokens?: number;
   cacheMissTokens?: number;
 }
+
+export interface ModelInfo {
+  name: string;
+  usage: TokenUsage;
+}
