@@ -73,6 +73,7 @@ export default function Home() {
         } else if (e.key === "b") {
           // Handle branching
           handleBranch();
+          setTimeout(() => setInput(""), 10);
         } else {
           // Check if key is a number 1-9 for multiple children
           const num = parseInt(e.key);

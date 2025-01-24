@@ -107,102 +107,128 @@ export function ChatWindow({
       const newEdges: Edge[] = [];
       const queue: ChatNode[] = [];
       const levels: Map<string, number> = new Map();
+      const subtreeWidths: Map<string, number> = new Map();
+
+      // Calculate subtree widths using post-order traversal
+      const calculateSubtreeWidth = (nodeId: string): number => {
+        const node = chatNodes.get(nodeId);
+        if (!node) return 0;
+
+        if (node.children.length === 0) {
+          subtreeWidths.set(nodeId, 1);
+          return 1;
+        }
+
+        let totalWidth = 0;
+        node.children.forEach((childId) => {
+          totalWidth += calculateSubtreeWidth(childId);
+        });
+
+        // Node should be at least as wide as its children
+        const width = Math.max(1, totalWidth);
+        subtreeWidths.set(nodeId, width);
+        return width;
+      };
 
       // Start with root node
-      console.log("messageContext", messageContext);
       const rootNode = chatNodes.get(`${currentChatId}-0`);
       if (rootNode) {
+        calculateSubtreeWidth(`${currentChatId}-0`);
         queue.push(rootNode);
         levels.set(`${currentChatId}-0`, 0);
       }
 
-      // BFS traversal
-      let currentLevel = 0;
-      let nodesInCurrentLevel = 1;
-      let nodesInNextLevel = 0;
-      let processedInCurrentLevel = 0;
-      let xOffset = 0;
-
+      // BFS traversal with level tracking
+      const levelNodes: Map<number, ChatNode[]> = new Map();
       while (queue.length > 0) {
         const node = queue.shift()!;
         const level = levels.get(node.id)!;
 
-        // Check if node is in message context
-        const isInMessageContext = messageContext.some(
-          (msg) => msg === node.id
-        );
+        if (!levelNodes.has(level)) {
+          levelNodes.set(level, []);
+        }
+        levelNodes.get(level)!.push(node);
 
-        // Add node
-        newNodes.push({
-          id: node.id,
-          position: {
-            x: level * 250,
-            y: xOffset * 150,
-          },
-          data: {
-            label: (
-              <div className="max-w-[200px] whitespace-pre-wrap text-xs">
-                <strong>Q: </strong>
-                {node.query.substring(0, 50)}
-                {node.query.length > 50 ? "..." : ""}
-                <br />
-                <strong>A: </strong>
-                {node.response.substring(0, 50)}
-                {node.response.length > 50 ? "..." : ""}
-              </div>
-            ),
-          },
-          style: {
-            width: 250,
-            padding: "10px",
-            border: isInMessageContext ? "2px solid #ff0000" : undefined,
-            backgroundColor:
-              currentChatNode?.id === node.id ? "#ffffd0" : undefined,
-          },
-        });
-
-        // Add edges to children
         node.children.forEach((childId) => {
           const childNode = chatNodes.get(childId);
           if (childNode) {
             queue.push(childNode);
             levels.set(childId, level + 1);
-            nodesInNextLevel++;
-
-            newEdges.push({
-              id: `edge-${node.id}-${childId}`,
-              source: node.id,
-              target: childId,
-              type: "default",
-              style: {
-                stroke:
-                  isInMessageContext &&
-                  messageContext.some((msg) => msg === childId)
-                    ? "#ff0000"
-                    : "#333",
-                strokeWidth: 2,
-              },
-            });
           }
         });
-
-        processedInCurrentLevel++;
-        xOffset++;
-
-        if (processedInCurrentLevel === nodesInCurrentLevel) {
-          currentLevel++;
-          nodesInCurrentLevel = nodesInNextLevel;
-          nodesInNextLevel = 0;
-          processedInCurrentLevel = 0;
-        }
       }
+
+      // Position nodes level by level
+      levelNodes.forEach((nodes, level) => {
+        let xPos = 0;
+        nodes.forEach((node) => {
+          const subtreeWidth = subtreeWidths.get(node.id) || 1;
+          const nodeSpacing = 200; // Base spacing between nodes
+
+          const isInMessageContext = messageContext.some(
+            (msg) => msg === node.id
+          );
+
+          newNodes.push({
+            id: node.id,
+            position: {
+              x: xPos,
+              y: level * 150, // Increased vertical spacing
+            },
+            data: {
+              label: (
+                <div className="max-w-[200px] whitespace-pre-wrap text-xs">
+                  <strong>Q: </strong>
+                  {node.query.substring(0, 50)}
+                  {node.query.length > 50 ? "..." : ""}
+                  <br />
+                  <strong>A: </strong>
+                  {node.response.substring(0, 50)}
+                  {node.response.length > 50 ? "..." : ""}
+                </div>
+              ),
+            },
+            style: {
+              width: 150,
+              padding: "10px",
+              border: isInMessageContext ? "2px solid #ff0000" : undefined,
+              backgroundColor:
+                currentChatNode?.id === node.id ? "#ffffd0" : undefined,
+            },
+          });
+
+          // Add edges to children
+          node.children.forEach((childId) => {
+            const childNode = chatNodes.get(childId);
+            if (childNode) {
+              newEdges.push({
+                id: `edge-${node.id}-${childId}`,
+                source: node.id,
+                target: childId,
+                type: "smoothstep",
+                style: {
+                  stroke:
+                    isInMessageContext &&
+                    messageContext.some((msg) => msg === childId)
+                      ? "#ff0000"
+                      : "hsl(var(--foreground))",
+                  strokeWidth: 2,
+                },
+              });
+            }
+          });
+
+          // Move x position by the width of the current subtree
+          xPos += subtreeWidth * nodeSpacing;
+        });
+      });
 
       setNodes(newNodes);
       setEdges(newEdges);
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [chatNodes, currentChatNode, inInsertMode]);
+  }, [chatNodes, currentChatNode, inInsertMode, messageContext, currentChatId]);
 
   // Separate effect for fitting view
   useEffect(() => {
@@ -295,6 +321,7 @@ export function ChatWindow({
                     currentChatNode={currentChatNode}
                     inInsertMode={inInsertMode}
                     isLastNode={idx === messageContext.length - 1}
+                    messageContext={messageContext}
                     onSelectNode={onSelectNode}
                     messageWindowRef={messageWindowRef}
                   />
@@ -448,6 +475,7 @@ export function ChatWindow({
           onInit={onInit}
           splitPosition={splitPosition}
           isSmallScreen={isSmallScreen}
+          onNodeClick={onSelectNode}
         />
       </div>
     </div>

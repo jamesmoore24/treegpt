@@ -18,6 +18,7 @@ interface ChatMessageWithChildrenProps {
   inInsertMode: boolean;
   isLastNode: boolean;
   onSelectNode: (nodeId: string) => void;
+  messageContext: string[];
   messageWindowRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -29,6 +30,7 @@ export function ChatMessageWithChildren({
   inInsertMode,
   isLastNode,
   onSelectNode,
+  messageContext,
   messageWindowRef,
 }: ChatMessageWithChildrenProps) {
   const [selectedChildIndex, setSelectedChildIndex] = useState(0);
@@ -93,7 +95,10 @@ export function ChatMessageWithChildren({
         selectedChildIndex < node.children.length - 1
       ) {
         setSelectedChildIndex((prev) => prev + 1);
-      } else if (e.key === "j" && isLastNode) {
+      } else if (
+        e.key === "j" &&
+        currentChatNode?.id === messageContext[messageContext.length - 1]
+      ) {
         const selectedChildId = node.children[selectedChildIndex];
         if (selectedChildId) {
           onSelectNode(selectedChildId);
@@ -143,7 +148,13 @@ export function ChatMessageWithChildren({
           </div>
           <div
             ref={childrenContainerRef}
-            className="flex items-center justify-between mt-4 gap-2 border-2 border-dotted border-gray-300 rounded-lg p-4"
+            className="flex items-center justify-between mt-4 gap-2 border-2 border-dotted border-gray-300 rounded-lg p-4 hover:bg-accent/50 cursor-pointer"
+            onClick={() => {
+              const selectedChildId = node.children[selectedChildIndex];
+              if (selectedChildId) {
+                onSelectNode(selectedChildId);
+              }
+            }}
           >
             {selectedChildIndex !== 0 && (
               <TooltipProvider delayDuration={0}>
