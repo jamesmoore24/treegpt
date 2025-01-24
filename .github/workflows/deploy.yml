@@ -23,7 +23,9 @@ jobs:
           node-version: 18
 
       - name: Create .env file
-        run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
+        run: |
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
+          echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" >> .env
 
       - name: Install dependencies
         run: npm install
