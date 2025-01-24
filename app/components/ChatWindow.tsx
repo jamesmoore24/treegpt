@@ -62,8 +62,6 @@ interface ChatWindowProps {
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
   tokenUsage: Map<string, TokenUsage>;
-  showReasoning: boolean;
-  onToggleReasoning: () => void;
 }
 
 export function ChatWindow({
@@ -86,8 +84,6 @@ export function ChatWindow({
   selectedModel,
   onModelChange,
   tokenUsage,
-  showReasoning,
-  onToggleReasoning,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageWindowRef = useRef<HTMLDivElement>(null);
@@ -372,6 +368,7 @@ export function ChatWindow({
     messageContext.forEach((nodeId) => {
       const usage = tokenUsage.get(nodeId);
       if (usage) {
+        console.log(usage);
         totalInputTokens += usage.inputTokens;
         totalOutputTokens += usage.outputTokens;
         totalCost += calculateActualCost(usage);
@@ -463,88 +460,78 @@ export function ChatWindow({
               />
               <div className="flex items-center justify-between">
                 <div className="flex gap-4 items-center text-sm text-muted-foreground">
-                  <div className="relative">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8"
-                      onClick={() => setModelMenuOpen(!modelMenuOpen)}
-                    >
-                      {modelConfigs[selectedModel].name}
-                      <ChevronUp
-                        className={cn(
-                          "ml-2 h-4 w-4",
-                          modelMenuOpen ? "rotate-180" : ""
-                        )}
-                      />
-                    </Button>
-                    {modelMenuOpen && (
-                      <div className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
-                        <div className="py-1" role="menu">
-                          {(Object.keys(modelConfigs) as ModelType[]).map(
-                            (model) => (
-                              <button
-                                key={model}
-                                className={cn(
-                                  "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
-                                  selectedModel === model ? "bg-gray-50" : ""
-                                )}
-                                role="menuitem"
-                                onClick={() => {
-                                  onModelChange(model);
-                                  setModelMenuOpen(false);
-                                }}
-                              >
-                                <div>{modelConfigs[model].name}</div>
-                                <div className="text-xs text-muted-foreground space-y-0.5">
-                                  <div>
-                                    Input (cached): $
-                                    {
-                                      modelConfigs[model].pricing
-                                        .inputTokensCached
-                                    }
-                                    /1M tokens
-                                  </div>
-                                  <div>
-                                    Input: $
-                                    {modelConfigs[model].pricing.inputTokens}/1M
-                                    tokens
-                                  </div>
-                                  <div>
-                                    Output: $
-                                    {modelConfigs[model].pricing.outputTokens}
-                                    /1M tokens
-                                  </div>
-                                </div>
-                                {model === "deepseek-reasoner" && (
-                                  <div className="mt-2 flex items-center space-x-2 border-t pt-2">
-                                    <Switch
-                                      id="show-reasoning"
-                                      checked={showReasoning}
-                                      onCheckedChange={(checked) => {
-                                        onToggleReasoning();
-                                        if (!checked) {
-                                          setModelMenuOpen(false);
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor="show-reasoning"
-                                      className="text-xs"
-                                    >
-                                      Show Reasoning Process
-                                    </Label>
-                                  </div>
-                                )}
-                              </button>
-                            )
+                  <div className="flex flex-col gap-2">
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => setModelMenuOpen(!modelMenuOpen)}
+                      >
+                        {modelConfigs[selectedModel].name}
+                        <ChevronUp
+                          className={cn(
+                            "ml-2 h-4 w-4",
+                            modelMenuOpen ? "rotate-180" : ""
                           )}
+                        />
+                      </Button>
+                      {modelMenuOpen && (
+                        <div className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                          <div className="py-1" role="menu">
+                            {(Object.keys(modelConfigs) as ModelType[]).map(
+                              (model) => (
+                                <button
+                                  key={model}
+                                  className={cn(
+                                    "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
+                                    selectedModel === model ? "bg-gray-50" : ""
+                                  )}
+                                  role="menuitem"
+                                  onClick={() => {
+                                    onModelChange(model);
+                                    setModelMenuOpen(false);
+                                  }}
+                                >
+                                  <div className="flex flex-col gap-2">
+                                    <div>{modelConfigs[model].name}</div>
+                                    <div className="text-xs text-muted-foreground space-y-1">
+                                      <div>
+                                        Input (cached): $
+                                        {
+                                          modelConfigs[model].pricing
+                                            .inputTokensCached
+                                        }
+                                        /1M tokens
+                                      </div>
+                                      <div>
+                                        Input: $
+                                        {
+                                          modelConfigs[model].pricing
+                                            .inputTokens
+                                        }
+                                        /1M tokens
+                                      </div>
+                                      <div>
+                                        Output: $
+                                        {
+                                          modelConfigs[model].pricing
+                                            .outputTokens
+                                        }
+                                        /1M tokens
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col border-l pl-4">
                     <span className="font-medium">Tokens</span>
                     {(() => {
                       const { totalInputTokens, totalOutputTokens } =

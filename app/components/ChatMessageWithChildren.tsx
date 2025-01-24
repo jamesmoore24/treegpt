@@ -38,6 +38,23 @@ export function ChatMessageWithChildren({
   const messageRef = useRef<HTMLDivElement>(null);
   const childrenContainerRef = useRef<HTMLDivElement>(null);
 
+  // Parse reasoning and content from the response
+  const parseResponse = (response: string) => {
+    const reasoningMatch = response.match(
+      /Reasoning:\s*([\s\S]*?)\s*Response:\s*([\s\S]*)/
+    );
+    if (reasoningMatch) {
+      return {
+        reasoning: reasoningMatch[1].trim(),
+        content: reasoningMatch[2].trim(),
+      };
+    }
+    return {
+      reasoning: undefined,
+      content: response.trim(),
+    };
+  };
+
   // Scroll message into view when selected
   useEffect(() => {
     if (
@@ -140,7 +157,12 @@ export function ChatMessageWithChildren({
       >
         <div className="space-y-4">
           <ChatMessage message={{ content: node.query, isUser: true }} />
-          <ChatMessage message={{ content: node.response, isUser: false }} />
+          <ChatMessage
+            message={{
+              ...parseResponse(node.response),
+              isUser: false,
+            }}
+          />
         </div>
       </div>
       {isLastNode && hasMultipleChildren && (

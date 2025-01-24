@@ -36,7 +36,6 @@ export default function Home() {
   const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
     new Map()
   );
-  const [showReasoning, setShowReasoning] = useState(false);
 
   useEffect(() => {
     if (!initialized.current && chatHistory.length === 0) {
@@ -206,7 +205,6 @@ export default function Home() {
             content: msg.content,
           })),
           model: selectedModel,
-          showReasoning,
         }),
       });
 
@@ -258,10 +256,9 @@ export default function Home() {
                 const updated = new Map(prev);
                 const nodeToUpdate = updated.get(newChatNodeID);
                 if (nodeToUpdate) {
-                  const response =
-                    showReasoning && fullReasoning
-                      ? `Reasoning:\n${fullReasoning}\n\nResponse:\n${fullResponse}`
-                      : fullResponse;
+                  const response = fullReasoning
+                    ? `Reasoning:\n${fullReasoning}\n\nResponse:\n${fullResponse}`
+                    : fullResponse;
                   updated.set(newChatNodeID, {
                     ...nodeToUpdate,
                     response: response.replace(/\n\n/g, "\n"),
@@ -419,8 +416,6 @@ export default function Home() {
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
           tokenUsage={tokenUsage}
-          showReasoning={showReasoning}
-          onToggleReasoning={() => setShowReasoning(!showReasoning)}
         />
       </main>
     </div>

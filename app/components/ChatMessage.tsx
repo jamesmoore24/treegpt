@@ -186,7 +186,7 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
 };
 
 export function ChatMessage({ message }: ChatMessageProps) {
-  const [isReasoningCollapsed, setIsReasoningCollapsed] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(false);
 
   return (
     <div
@@ -201,19 +201,19 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {message.reasoning && (
           <div className="mb-3">
             <button
-              onClick={() => setIsReasoningCollapsed(!isReasoningCollapsed)}
-              className="flex items-center gap-2 text-sm text-muted-foreground/70 hover:text-muted-foreground mb-2"
+              onClick={() => setShowReasoning(!showReasoning)}
+              className="flex items-center gap-1 text-sm font-medium text-muted-foreground/70 mb-2 hover:text-muted-foreground/90 transition-colors"
             >
+              Reasoning Process
               <ChevronDown
                 className={cn(
                   "h-4 w-4 transition-transform",
-                  isReasoningCollapsed ? "-rotate-90" : ""
+                  showReasoning ? "rotate-180" : ""
                 )}
               />
-              Reasoning
             </button>
-            {!isReasoningCollapsed && (
-              <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-2">
+            {showReasoning && (
+              <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-3 border border-muted-foreground/10">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={MarkdownComponents}
@@ -224,12 +224,18 @@ export function ChatMessage({ message }: ChatMessageProps) {
             )}
           </div>
         )}
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={MarkdownComponents}
+        <div
+          className={cn(
+            message.reasoning ? "border-t pt-3 border-muted-foreground/10" : ""
+          )}
         >
-          {message.content}
-        </ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={MarkdownComponents}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   );

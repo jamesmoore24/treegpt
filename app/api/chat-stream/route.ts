@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const { messages, model, showReasoning } = await request.json();
+    const { messages, model } = await request.json();
 
     if (!Array.isArray(messages)) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     let response;
     let modelInfo;
-    let isCached = false; // We'll need to implement cache detection logic
+    let isCached = false;
 
     switch (model as ModelType) {
       case "gpt-4":
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
           const reasoning = chunk.choices[0]?.delta?.reasoning_content;
 
           // Handle reasoning content for DeepSeek Reasoner
-          if (model === "deepseek-reasoner" && reasoning && showReasoning) {
+          if (model === "deepseek-reasoner" && reasoning) {
             reasoningContent += reasoning;
             reasoningTokens += Math.ceil(reasoning.length / 4);
             controller.enqueue(
@@ -119,6 +119,7 @@ export async function POST(request: Request) {
             outputTokens += Math.ceil(text.length / 4);
 
             if (chunk.usage) {
+              console.log(chunk.usage);
               modelInfo.usage = {
                 ...modelInfo.usage,
                 inputTokens: chunk.usage.prompt_tokens || 0,
