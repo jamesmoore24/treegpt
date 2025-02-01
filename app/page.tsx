@@ -16,6 +16,7 @@ import "reactflow/dist/style.css";
 import { ChatNode } from "@/types/chat";
 import { ModelType } from "@/app/components/ChatWindow";
 import { TokenUsage } from "@/types/tokenUsage";
+import { Textarea } from "@/app/components/ui/textarea";
 
 export default function Home() {
   const [step, setStep] = useState(1);
@@ -416,7 +417,33 @@ export default function Home() {
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
           tokenUsage={tokenUsage}
-        />
+        >
+          <div className="border-t">
+            <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-2">
+              <Textarea
+                ref={inputRef}
+                value={input}
+                onChange={handleInputChange}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+                placeholder="Type your message..."
+                className="flex-1"
+                rows={Math.min(input.split("\n").length, 12)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <div className="flex gap-4 items-center text-sm text-muted-foreground">
+                  {/* Add any necessary components here */}
+                </div>
+              </div>
+            </form>
+          </div>
+        </ChatWindow>
       </main>
     </div>
   );

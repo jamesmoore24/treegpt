@@ -8,7 +8,14 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { ComponentType } from "react";
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Copy, Check } from "lucide-react";
+import { Button } from "./ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 interface ChatMessageProps {
   message: Message & {
@@ -20,14 +27,44 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
   code({ className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || "");
     const language = match ? match[1] : "";
+    const [copied, setCopied] = useState(false);
+
+    const copyToClipboard = async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy text: ", err);
+      }
+    };
 
     return match ? (
       <div className="relative">
-        {language && (
-          <div className="absolute top-0 right-0 px-2 py-1 text-xs text-muted-foreground bg-muted-foreground/10 rounded-bl">
-            {language}
-          </div>
-        )}
+        <div className="absolute top-0 right-0 flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground bg-muted-foreground/10 rounded-bl">
+          {language}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4 p-0 hover:bg-muted-foreground/20"
+                  onClick={() => copyToClipboard(String(children))}
+                >
+                  {copied ? (
+                    <Check className="h-3 w-3" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{copied ? "Copied!" : "Copy code"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <SyntaxHighlighter
           style={oneDark}
           language={language}
@@ -186,7 +223,7 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
 };
 
 export function ChatMessage({ message }: ChatMessageProps) {
-  const [showReasoning, setShowReasoning] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(true);
 
   return (
     <div

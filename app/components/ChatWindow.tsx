@@ -10,6 +10,8 @@ import {
   ChevronUp,
   GitBranch,
   MessageSquare,
+  Command,
+  CornerDownLeft,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
@@ -295,12 +297,14 @@ export function ChatWindow({
   }, [messageContext.length]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isLoadingFirstToken || messageContext.length === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messageContext]);
+  }, [messageContext, isLoadingFirstToken]);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
@@ -437,24 +441,11 @@ export function ChatWindow({
                 onBlur={onInputBlur}
                 placeholder="Type your message..."
                 className="flex-1"
-                rows={
-                  input.split("\n").length > 1
-                    ? Math.min(input.split("\n").length, 12)
-                    : 1
-                }
+                rows={Math.min(input.split("\n").length, 12)}
                 onKeyDown={(e) => {
-                  const lineCount = input.split("\n").length;
-                  if (e.key === "Enter") {
-                    if (lineCount <= 3 && !e.shiftKey) {
-                      e.preventDefault();
-                      onSubmit(e);
-                    } else if (lineCount <= 3 && e.shiftKey) {
-                      // Allow new line with Shift+Enter when under 3 lines
-                      return;
-                    } else if (lineCount > 3) {
-                      // After 4 lines, both Enter and Shift+Enter just create new lines
-                      return;
-                    }
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    onSubmit(e);
                   }
                 }}
               />
@@ -599,7 +590,10 @@ export function ChatWindow({
                         <div className="absolute inset-[30%] bg-current rounded-full" />
                       </div>
                     ) : (
-                      <ArrowUp className="h-4 w-4" />
+                      <div className="flex items-center gap-1">
+                        <Command className="h-3 w-3" />
+                        <CornerDownLeft className="h-4 w-4" />
+                      </div>
                     )}
                   </Button>
                 </div>
