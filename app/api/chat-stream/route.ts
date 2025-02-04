@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { type Stream } from "openai/streaming";
 import { ModelInfo, TokenUsage } from "@/types/tokenUsage";
 import { DeepSeekCompletionUsage, DeepSeekDelta } from "@/types/openai";
+import { getCerebrasInstance } from "@/app/lib/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,55 @@ export async function POST(request: Request) {
         modelInfo = {
           name: "DeepSeek Reasoner",
           usage: {
-            inputTokens: 0,
+            inputTokens: Math.ceil(
+              messages.reduce((acc, msg) => acc + msg.content.length, 0) / 4
+            ),
+            outputTokens: 0,
+            cached: isCached,
+          },
+        };
+        break;
+
+      case "llama-3.1-8b":
+        const cerebras8b = getCerebrasInstance();
+        response = (await cerebras8b.chat.completions.create({
+          model: "llama-3.1-8b",
+          messages: messages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          temperature: 0.7,
+          stream: true,
+        })) as unknown as Stream<OpenAI.ChatCompletionChunk>;
+        modelInfo = {
+          name: "Llama 3.1 (8B)",
+          usage: {
+            inputTokens: Math.ceil(
+              messages.reduce((acc, msg) => acc + msg.content.length, 0) / 4
+            ),
+            outputTokens: 0,
+            cached: isCached,
+          },
+        };
+        break;
+
+      case "llama-3.3-70b":
+        const cerebras70b = getCerebrasInstance();
+        response = (await cerebras70b.chat.completions.create({
+          model: "llama-3.3-70b",
+          messages: messages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          temperature: 0.7,
+          stream: true,
+        })) as unknown as Stream<OpenAI.ChatCompletionChunk>;
+        modelInfo = {
+          name: "Llama 3.3 (70B)",
+          usage: {
+            inputTokens: Math.ceil(
+              messages.reduce((acc, msg) => acc + msg.content.length, 0) / 4
+            ),
             outputTokens: 0,
             cached: isCached,
           },
@@ -92,6 +141,7 @@ export async function POST(request: Request) {
         let outputTokens = 0;
         let reasoningTokens = 0;
         let reasoningContent = "";
+        const initialInputTokens = modelInfo.usage.inputTokens;
 
         for await (const chunk of response) {
           const delta = chunk.choices[0]?.delta as DeepSeekDelta;
@@ -112,6 +162,7 @@ export async function POST(request: Request) {
                     ...modelInfo,
                     usage: {
                       ...modelInfo.usage,
+                      inputTokens: initialInputTokens,
                       outputTokens: outputTokens + reasoningTokens,
                       reasoningTokens,
                     },
@@ -128,7 +179,7 @@ export async function POST(request: Request) {
             if (usage) {
               modelInfo.usage = {
                 ...modelInfo.usage,
-                inputTokens: usage.prompt_tokens || 0,
+                inputTokens: usage.prompt_tokens || initialInputTokens,
                 outputTokens: outputTokens + reasoningTokens,
                 cached: (usage.prompt_cache_hit_tokens || 0) > 0,
                 totalTokens: usage.total_tokens || 0,
@@ -139,6 +190,7 @@ export async function POST(request: Request) {
             } else {
               modelInfo.usage = {
                 ...modelInfo.usage,
+                inputTokens: initialInputTokens,
                 outputTokens: outputTokens + reasoningTokens,
                 reasoningTokens,
               };

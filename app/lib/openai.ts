@@ -1,9 +1,9 @@
 import { OpenAI } from "openai";
-
+import Cerebras from "@cerebras/cerebras_cloud_sdk";
 // Singleton instance
 let openaiInstance: OpenAI | undefined;
 let deepSeekInstance: OpenAI | undefined;
-
+let cerebrasInstance: Cerebras | undefined;
 export function getOpenAIInstance(): OpenAI {
   if (!openaiInstance) {
     openaiInstance = new OpenAI({
@@ -21,4 +21,12 @@ export function getDeepSeekInstance(): OpenAI {
     });
   }
   return deepSeekInstance;
+}
+export function getCerebrasInstance(): Cerebras {
+  if (!cerebrasInstance) {
+    cerebrasInstance = new Cerebras({
+      apiKey: process.env["CEREBRAS_API_KEY"],
+    });
+  }
+  return cerebrasInstance;
 }

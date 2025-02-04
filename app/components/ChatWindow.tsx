@@ -27,14 +27,19 @@ import { ChatMessageWithChildren } from "./ChatMessageWithChildren";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 
-export type ModelType = "gpt-4" | "deepseek-chat" | "deepseek-reasoner";
+export type ModelType =
+  | "gpt-4"
+  | "deepseek-chat"
+  | "deepseek-reasoner"
+  | "llama-3.1-8b"
+  | "llama-3.3-70b";
 
 interface ModelConfig {
   name: string;
   pricing: {
-    inputTokensCached: number; // Cost per 1M tokens
-    inputTokens: number; // Cost per 1M tokens
-    outputTokens: number; // Cost per 1M tokens
+    inputTokensCached: number;
+    inputTokens: number;
+    outputTokens: number;
   };
 }
 
@@ -123,6 +128,22 @@ export function ChatWindow({
         inputTokensCached: 0.14,
         inputTokens: 0.55,
         outputTokens: 2.19,
+      },
+    },
+    "llama-3.1-8b": {
+      name: "Llama 3.1 (8B)",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      },
+    },
+    "llama-3.3-70b": {
+      name: "Llama 3.3 (70B)",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
       },
     },
   };
@@ -346,11 +367,49 @@ export function ChatWindow({
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // Calculate estimated cost for the current request
+  // Add keyboard shortcuts for model selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Allow Command+Enter to submit in any mode
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (input.trim() && !isLoading) {
+          onSubmit(e as unknown as React.FormEvent);
+        }
+        return;
+      }
+
+      // Only handle model selection shortcuts when not in insert mode
+      if (inInsertMode) return;
+
+      const modelKeys = Object.keys(modelConfigs) as ModelType[];
+      const num = parseInt(e.key);
+
+      if (!isNaN(num) && num >= 1 && num <= modelKeys.length) {
+        const selectedModelKey = modelKeys[num - 1];
+        onModelChange(selectedModelKey);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onModelChange, inInsertMode, input, isLoading, onSubmit]);
+
+  // Calculate estimated cost for the next request
   const calculateEstimatedCost = (inputTokens: number) => {
     const pricing = modelConfigs[selectedModel].pricing;
-    // Assume worst case (not cached) for estimates
-    return (inputTokens / 1_000_000) * pricing.inputTokens;
+    // Include both the new input tokens and the context tokens from previous messages
+    const contextTokens = messageContext.reduce((total, nodeId) => {
+      const usage = tokenUsage.get(nodeId);
+      if (usage) {
+        total += usage.inputTokens + usage.outputTokens;
+      }
+      return total;
+    }, 0);
+
+    // Calculate cost for both context and new input
+    const totalInputTokens = contextTokens + inputTokens;
+    return (totalInputTokens / 1_000_000) * pricing.inputTokens;
   };
 
   // Calculate total cost for a completed request
@@ -372,7 +431,6 @@ export function ChatWindow({
     messageContext.forEach((nodeId) => {
       const usage = tokenUsage.get(nodeId);
       if (usage) {
-        console.log(usage);
         totalInputTokens += usage.inputTokens;
         totalOutputTokens += usage.outputTokens;
         totalCost += calculateActualCost(usage);
@@ -458,7 +516,7 @@ export function ChatWindow({
                         variant="ghost"
                         size="sm"
                         className="h-8"
-                        onClick={() => setModelMenuOpen(!modelMenuOpen)}
+                        onClick={() => setModelMenuOpen(true)}
                       >
                         {modelConfigs[selectedModel].name}
                         <ChevronUp
@@ -469,52 +527,67 @@ export function ChatWindow({
                         />
                       </Button>
                       {modelMenuOpen && (
-                        <div className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                        <div
+                          className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                          onMouseLeave={() => setModelMenuOpen(false)}
+                        >
                           <div className="py-1" role="menu">
                             {(Object.keys(modelConfigs) as ModelType[]).map(
-                              (model) => (
-                                <button
-                                  key={model}
-                                  className={cn(
-                                    "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
-                                    selectedModel === model ? "bg-gray-50" : ""
-                                  )}
-                                  role="menuitem"
-                                  onClick={() => {
-                                    onModelChange(model);
-                                    setModelMenuOpen(false);
-                                  }}
-                                >
-                                  <div className="flex flex-col gap-2">
-                                    <div>{modelConfigs[model].name}</div>
-                                    <div className="text-xs text-muted-foreground space-y-1">
-                                      <div>
+                              (model, index) => (
+                                <TooltipProvider key={model} delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        className={cn(
+                                          "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
+                                          selectedModel === model
+                                            ? "bg-gray-50"
+                                            : ""
+                                        )}
+                                        role="menuitem"
+                                        onClick={() => {
+                                          onModelChange(model);
+                                          setModelMenuOpen(false);
+                                        }}
+                                      >
+                                        {modelConfigs[model].name}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="left"
+                                      className="space-y-1"
+                                    >
+                                      <p className="font-medium">
+                                        Press <kbd>{index + 1}</kbd> to select
+                                      </p>
+                                      <div className="border-t my-2"></div>
+                                      <p className="font-medium">
+                                        Pricing per 1M tokens:
+                                      </p>
+                                      <p>
                                         Input (cached): $
                                         {
                                           modelConfigs[model].pricing
                                             .inputTokensCached
                                         }
-                                        /1M tokens
-                                      </div>
-                                      <div>
+                                      </p>
+                                      <p>
                                         Input: $
                                         {
                                           modelConfigs[model].pricing
                                             .inputTokens
                                         }
-                                        /1M tokens
-                                      </div>
-                                      <div>
+                                      </p>
+                                      <p>
                                         Output: $
                                         {
                                           modelConfigs[model].pricing
                                             .outputTokens
                                         }
-                                        /1M tokens
-                                      </div>
-                                    </div>
-                                  </div>
-                                </button>
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               )
                             )}
                           </div>

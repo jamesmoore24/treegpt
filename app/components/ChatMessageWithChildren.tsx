@@ -71,7 +71,7 @@ export function ChatMessageWithChildren({
       ) {
         messageRef.current.scrollIntoView({
           behavior: "smooth",
-          block: "nearest",
+          block: "start",
         });
       }
     }
@@ -156,12 +156,20 @@ export function ChatMessageWithChildren({
         }}
       >
         <div className="space-y-4">
-          <ChatMessage message={{ content: node.query, isUser: true }} />
+          <ChatMessage
+            message={{ content: node.query, isUser: true }}
+            isSelected={currentChatNode?.id === nodeId}
+            isRecent={isLastNode}
+            inInsertMode={inInsertMode}
+          />
           <ChatMessage
             message={{
               ...parseResponse(node.response),
               isUser: false,
             }}
+            isSelected={currentChatNode?.id === nodeId}
+            isRecent={isLastNode}
+            inInsertMode={inInsertMode}
           />
         </div>
       </div>
@@ -220,9 +228,15 @@ export function ChatMessageWithChildren({
                   >
                     <ChatMessage
                       message={{ content: childNode.query, isUser: true }}
+                      isSelected={false}
+                      isRecent={false}
+                      inInsertMode={false}
                     />
                     <ChatMessage
                       message={{ content: childNode.response, isUser: false }}
+                      isSelected={false}
+                      isRecent={false}
+                      inInsertMode={false}
                     />
                   </div>
                 );

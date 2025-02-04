@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { ComponentType } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, Copy, Check } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -21,6 +21,9 @@ interface ChatMessageProps {
   message: Message & {
     reasoning?: string;
   };
+  isSelected?: boolean;
+  isRecent?: boolean;
+  inInsertMode?: boolean;
 }
 
 const MarkdownComponents: Record<string, ComponentType<any>> = {
@@ -222,8 +225,28 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
   },
 };
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  isSelected = false,
+  isRecent = false,
+  inInsertMode = false,
+}: ChatMessageProps) {
   const [showReasoning, setShowReasoning] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  // Show full content if selected or if it's the most recent message during insert mode
+  useEffect(() => {
+    if (isSelected || (isRecent && inInsertMode)) {
+      setIsExpanded(true);
+    } else {
+      setIsExpanded(false);
+    }
+  }, [isSelected, isRecent, inInsertMode]);
+
+  const getPreviewContent = (content: string) => {
+    if (content.length <= 50) return content;
+    return content.slice(0, 50) + "...";
+  };
 
   return (
     <div
@@ -241,13 +264,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
               onClick={() => setShowReasoning(!showReasoning)}
               className="flex items-center gap-1 text-sm font-medium text-muted-foreground/70 mb-2 hover:text-muted-foreground/90 transition-colors"
             >
-              Reasoning Process
               <ChevronDown
                 className={cn(
                   "h-4 w-4 transition-transform",
                   showReasoning ? "rotate-180" : ""
                 )}
               />
+              Reasoning Process
             </button>
             {showReasoning && (
               <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-3 border border-muted-foreground/10">
@@ -255,7 +278,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   remarkPlugins={[remarkGfm]}
                   components={MarkdownComponents}
                 >
-                  {message.reasoning}
+                  {isExpanded
+                    ? message.reasoning
+                    : getPreviewContent(message.reasoning)}
                 </ReactMarkdown>
               </div>
             )}
@@ -270,7 +295,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             remarkPlugins={[remarkGfm]}
             components={MarkdownComponents}
           >
-            {message.content}
+            {isExpanded ? message.content : getPreviewContent(message.content)}
           </ReactMarkdown>
         </div>
       </div>
