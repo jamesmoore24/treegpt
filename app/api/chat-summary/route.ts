@@ -1,42 +1,36 @@
 import { NextResponse } from "next/server";
-import { getOpenAIInstance } from "@/app/lib/openai";
+import { getCerebrasInstance } from "@/app/lib/openai";
+import OpenAI from "openai";
 
 export const dynamic = "force-dynamic";
 
-const openai = getOpenAIInstance();
-
 export async function POST(request: Request) {
-  const { query, response } = await request.json();
-  const summary = await generateBlockSummary(query, response);
-  return NextResponse.json({ summary });
-}
-
-async function generateBlockSummary(
-  query: string,
-  response: string
-): Promise<string> {
   try {
-    const summaryResponse = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const { query, response } = await request.json();
+
+    const cerebras = getCerebrasInstance();
+    const completion = (await cerebras.chat.completions.create({
+      model: "llama-3.3-70b",
       messages: [
         {
           role: "system",
-          content: "Summarize the following Q&A exchange in 10 words or less.",
+          content:
+            "You are a helpful assistant that generates concise chat titles. Keep titles under 50 characters.",
         },
         {
           role: "user",
-          content: `Q: ${query}\nA: ${response}`,
+          content: `Generate a concise title for this chat based on the first query and response:\n\nQuery: ${query}\n\nResponse: ${response}`,
         },
       ],
-      temperature: 0.3,
-      max_tokens: 20,
-    });
+      temperature: 0.7,
+    })) as unknown as OpenAI.Chat.ChatCompletion;
 
-    return (
-      summaryResponse.choices[0]?.message?.content || "No summary generated"
-    );
+    const summary =
+      completion.choices[0]?.message?.content?.trim() || "New Chat";
+
+    return NextResponse.json({ summary });
   } catch (error) {
     console.error("Error generating summary:", error);
-    return "Error generating summary";
+    return NextResponse.json({ summary: "New Chat" });
   }
 }
