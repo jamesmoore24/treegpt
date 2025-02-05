@@ -28,7 +28,6 @@ import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 
 export type ModelType =
-  | "gpt-4"
   | "deepseek-chat"
   | "deepseek-reasoner"
   | "llama-3.1-8b"
@@ -106,12 +105,20 @@ export function ChatWindow({
 
   // Model configurations with detailed pricing
   const modelConfigs: Record<ModelType, ModelConfig> = {
-    "gpt-4": {
-      name: "GPT-4",
+    "llama-3.1-8b": {
+      name: "Llama 3.1 (8B)",
       pricing: {
-        inputTokensCached: 1.25,
-        inputTokens: 2.5,
-        outputTokens: 10.0,
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      },
+    },
+    "llama-3.3-70b": {
+      name: "Llama 3.3 (70B)",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
       },
     },
     "deepseek-chat": {
@@ -128,22 +135,6 @@ export function ChatWindow({
         inputTokensCached: 0.14,
         inputTokens: 0.55,
         outputTokens: 2.19,
-      },
-    },
-    "llama-3.1-8b": {
-      name: "Llama 3.1 (8B)",
-      pricing: {
-        inputTokensCached: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-      },
-    },
-    "llama-3.3-70b": {
-      name: "Llama 3.3 (70B)",
-      pricing: {
-        inputTokensCached: 0,
-        inputTokens: 0,
-        outputTokens: 0,
       },
     },
   };

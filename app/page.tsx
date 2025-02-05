@@ -33,7 +33,8 @@ export default function Home() {
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelType>("gpt-4");
+  const [selectedModel, setSelectedModel] =
+    useState<ModelType>("deepseek-chat");
   const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
     new Map()
   );

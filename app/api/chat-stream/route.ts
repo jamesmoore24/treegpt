@@ -25,24 +25,6 @@ export async function POST(request: Request) {
     let isCached = false;
 
     switch (model as ModelType) {
-      case "gpt-4":
-        const openai = getOpenAIInstance();
-        response = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages,
-          temperature: 0.7,
-          stream: true,
-        });
-        modelInfo = {
-          name: "GPT-4",
-          usage: {
-            inputTokens: 0,
-            outputTokens: 0,
-            cached: isCached,
-          },
-        };
-        break;
-
       case "deepseek-chat":
         const deepseekChat = getDeepSeekInstance();
         response = await deepseekChat.chat.completions.create({
@@ -69,12 +51,15 @@ export async function POST(request: Request) {
           temperature: 0.7,
           stream: true,
         });
+        const totalInputContent = messages.reduce(
+          (acc, msg) => acc + msg.content,
+          ""
+        );
+        const estimatedInputTokens = Math.ceil(totalInputContent.length / 4);
         modelInfo = {
           name: "DeepSeek Reasoner",
           usage: {
-            inputTokens: Math.ceil(
-              messages.reduce((acc, msg) => acc + msg.content.length, 0) / 4
-            ),
+            inputTokens: estimatedInputTokens,
             outputTokens: 0,
             cached: isCached,
           },
@@ -92,12 +77,17 @@ export async function POST(request: Request) {
           temperature: 0.7,
           stream: true,
         })) as unknown as Stream<OpenAI.ChatCompletionChunk>;
+        const totalInputContent8b = messages.reduce(
+          (acc, msg) => acc + msg.content,
+          ""
+        );
+        const estimatedInputTokens8b = Math.ceil(
+          totalInputContent8b.length / 4
+        );
         modelInfo = {
           name: "Llama 3.1 (8B)",
           usage: {
-            inputTokens: Math.ceil(
-              messages.reduce((acc, msg) => acc + msg.content.length, 0) / 4
-            ),
+            inputTokens: estimatedInputTokens8b,
             outputTokens: 0,
             cached: isCached,
           },
@@ -115,12 +105,17 @@ export async function POST(request: Request) {
           temperature: 0.7,
           stream: true,
         })) as unknown as Stream<OpenAI.ChatCompletionChunk>;
+        const totalInputContent70b = messages.reduce(
+          (acc, msg) => acc + msg.content,
+          ""
+        );
+        const estimatedInputTokens70b = Math.ceil(
+          totalInputContent70b.length / 4
+        );
         modelInfo = {
           name: "Llama 3.3 (70B)",
           usage: {
-            inputTokens: Math.ceil(
-              messages.reduce((acc, msg) => acc + msg.content.length, 0) / 4
-            ),
+            inputTokens: estimatedInputTokens70b,
             outputTokens: 0,
             cached: isCached,
           },
