@@ -20,6 +20,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Add system message for LaTeX formatting
+    const systemMessage = {
+      role: "system",
+      content:
+        "When writing mathematical expressions or equations, always use LaTeX/Markdown formatting with the following conventions:\n- For inline math, use single dollar signs: $x^2 + y^2 = z^2$\n- For block/display math, use double dollar signs:\n$$\n\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}\n$$\nThis ensures proper rendering and consistent formatting across all mathematical content.",
+    };
+
+    const messagesWithSystem = [systemMessage, ...messages];
+
     let response: Stream<OpenAI.ChatCompletionChunk>;
     let modelInfo: ModelInfo;
     let isCached = false;
@@ -29,7 +38,7 @@ export async function POST(request: Request) {
         const deepseekChat = getDeepSeekInstance();
         response = await deepseekChat.chat.completions.create({
           model: "deepseek-chat",
-          messages,
+          messages: messagesWithSystem,
           temperature: 0.7,
           stream: true,
         });
@@ -47,7 +56,7 @@ export async function POST(request: Request) {
         const deepseekReasoner = getDeepSeekInstance();
         response = await deepseekReasoner.chat.completions.create({
           model: "deepseek-reasoner",
-          messages,
+          messages: messagesWithSystem,
           temperature: 0.7,
           stream: true,
         });

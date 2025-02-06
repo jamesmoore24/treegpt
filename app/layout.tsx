@@ -1,6 +1,9 @@
 import "./globals.css";
-import { Inter } from "next/font/google";
+import "katex/dist/katex.min.css";
 import { ThemeProvider } from "@/app/components/theme-provider";
+import { Toaster } from "@/app/components/ui/toaster";
+import { cn } from "@/lib/utils";
+import { Inter } from "next/font/google";
 import { Metadata } from "next";
 import Icon from "@/public/favicon.ico";
 import Icon16 from "@/public/favicon-16x16.png";

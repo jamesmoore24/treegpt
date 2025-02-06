@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { Message } from "@/types/chat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { ComponentType } from "react";
@@ -16,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
+import "katex/dist/katex.min.css";
 
 interface ChatMessageProps {
   message: Message & {
@@ -275,7 +278,8 @@ export function ChatMessage({
             {showReasoning && (
               <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-3 border border-muted-foreground/10">
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
                   components={MarkdownComponents}
                 >
                   {isExpanded
@@ -292,7 +296,8 @@ export function ChatMessage({
           )}
         >
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             components={MarkdownComponents}
           >
             {isExpanded ? message.content : getPreviewContent(message.content)}
