@@ -1,6 +1,7 @@
 export type Message = {
   content: string;
   isUser: boolean;
+  model?: string;
 };
 
 export type ChatHistory = {
@@ -17,4 +18,5 @@ export type ChatNode = {
   children: string[];
   query: string;
   response: string;
+  model?: string;
 };

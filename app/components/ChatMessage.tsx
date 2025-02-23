@@ -23,6 +23,7 @@ import "katex/dist/katex.min.css";
 interface ChatMessageProps {
   message: Message & {
     reasoning?: string;
+    model?: string;
   };
   isSelected?: boolean;
   isRecent?: boolean;
@@ -261,6 +262,14 @@ export function ChatMessage({
           message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
         )}
       >
+        {!message.isUser && message.model && (
+          <div className="text-xs text-muted-foreground/70 mb-2 font-mono">
+            {message.model.includes("Auto Router") &&
+            message.model.includes("(")
+              ? message.model
+              : message.model}
+          </div>
+        )}
         {message.reasoning && (
           <div className="mb-3">
             <button

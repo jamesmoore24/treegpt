@@ -28,6 +28,7 @@ import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 
 export type ModelType =
+  | "auto"
   | "deepseek-chat"
   | "deepseek-reasoner"
   | "llama-3.1-8b"
@@ -105,6 +106,14 @@ export function ChatWindow({
 
   // Model configurations with detailed pricing
   const modelConfigs: Record<ModelType, ModelConfig> = {
+    auto: {
+      name: "🌟 Auto Router",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      },
+    },
     "llama-3.1-8b": {
       name: "Llama 3.1 (8B)",
       pricing: {
@@ -509,7 +518,9 @@ export function ChatWindow({
                         className="h-8"
                         onClick={() => setModelMenuOpen(true)}
                       >
-                        {modelConfigs[selectedModel].name}
+                        {selectedModel === "auto"
+                          ? "🌟 Auto Router"
+                          : modelConfigs[selectedModel].name}
                         <ChevronUp
                           className={cn(
                             "ml-2 h-4 w-4",

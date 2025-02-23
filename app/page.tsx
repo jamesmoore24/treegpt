@@ -18,6 +18,49 @@ import { ModelType } from "@/app/components/ChatWindow";
 import { TokenUsage } from "@/types/tokenUsage";
 import { Textarea } from "@/app/components/ui/textarea";
 
+const modelConfigs = {
+  auto: {
+    name: "⭐ Auto Router",
+    pricing: {
+      inputTokensCached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  },
+  "llama-3.1-8b": {
+    name: "Llama 3.1 (8B)",
+    pricing: {
+      inputTokensCached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  },
+  "llama-3.3-70b": {
+    name: "Llama 3.3 (70B)",
+    pricing: {
+      inputTokensCached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  },
+  "deepseek-chat": {
+    name: "DeepSeek Chat",
+    pricing: {
+      inputTokensCached: 0.014,
+      inputTokens: 0.14,
+      outputTokens: 0.28,
+    },
+  },
+  "deepseek-reasoner": {
+    name: "DeepSeek Reasoner",
+    pricing: {
+      inputTokensCached: 0.14,
+      inputTokens: 0.55,
+      outputTokens: 2.19,
+    },
+  },
+} as const;
+
 export default function Home() {
   const [step, setStep] = useState(1);
   const [messageContext, setMessageContext] = useState<string[]>([]);
@@ -172,6 +215,7 @@ export default function Home() {
       children: [],
       query: input,
       response: "",
+      model: modelConfigs[selectedModel].name,
     };
 
     // Initialize the node in chatNodes
@@ -230,6 +274,24 @@ export default function Home() {
         for (const line of lines) {
           try {
             const update = JSON.parse(line);
+
+            // Handle model update from auto router
+            if (update.selectedModel && selectedModel === "auto") {
+              // Update the node's model name with the actual selected model
+              setChatNodes((prev) => {
+                const updated = new Map(prev);
+                const nodeToUpdate = updated.get(newChatNodeID);
+                if (nodeToUpdate) {
+                  updated.set(newChatNodeID, {
+                    ...nodeToUpdate,
+                    model: `⭐ Auto Router (${
+                      modelConfigs[update.selectedModel as ModelType].name
+                    })`,
+                  });
+                }
+                return updated;
+              });
+            }
 
             // Handle reasoning content
             if (update.reasoning) {

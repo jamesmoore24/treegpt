@@ -166,6 +166,7 @@ export function ChatMessageWithChildren({
             message={{
               ...parseResponse(node.response),
               isUser: false,
+              model: node.model,
             }}
             isSelected={currentChatNode?.id === nodeId}
             isRecent={isLastNode}
