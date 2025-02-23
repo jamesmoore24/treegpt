@@ -58,7 +58,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             echo "Current directory before cd:"
-            pwd  # Print the current directory
+            pwd  # Print the current directory!
             echo "Changing to directory: ${{ env.EC2_PATH }}"
             cd ${{ env.EC2_PATH }} || { echo "Failed to change directory to ${{ env.EC2_PATH }}"; exit 1; }
             echo "Current directory after cd:"
