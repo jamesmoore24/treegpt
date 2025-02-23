@@ -106,14 +106,6 @@ export function ChatWindow({
 
   // Model configurations with detailed pricing
   const modelConfigs: Record<ModelType, ModelConfig> = {
-    auto: {
-      name: "🌟 Auto Router",
-      pricing: {
-        inputTokensCached: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-      },
-    },
     "llama-3.1-8b": {
       name: "Llama 3.1 (8B)",
       pricing: {
@@ -144,6 +136,14 @@ export function ChatWindow({
         inputTokensCached: 0.14,
         inputTokens: 0.55,
         outputTokens: 2.19,
+      },
+    },
+    auto: {
+      name: "Auto Router",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
       },
     },
   };
@@ -519,7 +519,7 @@ export function ChatWindow({
                         onClick={() => setModelMenuOpen(true)}
                       >
                         {selectedModel === "auto"
-                          ? "🌟 Auto Router"
+                          ? "Auto Router"
                           : modelConfigs[selectedModel].name}
                         <ChevronUp
                           className={cn(

@@ -19,14 +19,6 @@ import { TokenUsage } from "@/types/tokenUsage";
 import { Textarea } from "@/app/components/ui/textarea";
 
 const modelConfigs = {
-  auto: {
-    name: "⭐ Auto Router",
-    pricing: {
-      inputTokensCached: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-    },
-  },
   "llama-3.1-8b": {
     name: "Llama 3.1 (8B)",
     pricing: {
@@ -59,6 +51,14 @@ const modelConfigs = {
       outputTokens: 2.19,
     },
   },
+  auto: {
+    name: "Auto Router",
+    pricing: {
+      inputTokensCached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  },
 } as const;
 
 export default function Home() {
@@ -76,7 +76,7 @@ export default function Home() {
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelType>("auto");
+  const [selectedModel, setSelectedModel] = useState<ModelType>("llama-3.1-8b");
   const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
     new Map()
   );
@@ -284,7 +284,7 @@ export default function Home() {
                 if (nodeToUpdate) {
                   updated.set(newChatNodeID, {
                     ...nodeToUpdate,
-                    model: `⭐ Auto Router (${
+                    model: `Auto Router (${
                       modelConfigs[update.selectedModel as ModelType].name
                     })`,
                   });

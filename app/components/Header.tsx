@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import { ThemeToggle } from "./ThemeToggle";
+import { GitHubStars } from "./GitHubStars";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -55,6 +56,7 @@ export function Header({
         </Button>
       </div>
       <div className="flex items-center gap-2">
+        <GitHubStars />
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
