@@ -62,9 +62,16 @@ export async function POST(request: Request) {
         }
 
         const routerResult = await routerResponse.json();
-        const threshold = 0.11593;
+        const reasonerThreshold = 0.2;
+        const llamaThreshold = 0.11593;
+
         selectedModel =
-          routerResult.win_rate > threshold ? "llama-3.3-70b" : "llama-3.1-8b";
+          routerResult.win_rate > reasonerThreshold
+            ? "deepseek-reasoner"
+            : routerResult.win_rate > llamaThreshold
+            ? "llama-3.3-70b"
+            : "llama-3.1-8b";
+
         console.log(
           `Auto-routing selected model: ${selectedModel} (win_rate: ${routerResult.win_rate})`
         );
