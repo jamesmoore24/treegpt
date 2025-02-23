@@ -562,31 +562,51 @@ export function ChatWindow({
                                       <p className="font-medium">
                                         Press <kbd>{index + 1}</kbd> to select
                                       </p>
-                                      <div className="border-t my-2"></div>
-                                      <p className="font-medium">
-                                        Pricing per 1M tokens:
-                                      </p>
-                                      <p>
-                                        Input (cached): $
-                                        {
-                                          modelConfigs[model].pricing
-                                            .inputTokensCached
-                                        }
-                                      </p>
-                                      <p>
-                                        Input: $
-                                        {
-                                          modelConfigs[model].pricing
-                                            .inputTokens
-                                        }
-                                      </p>
-                                      <p>
-                                        Output: $
-                                        {
-                                          modelConfigs[model].pricing
-                                            .outputTokens
-                                        }
-                                      </p>
+                                      {model === "auto" && (
+                                        <>
+                                          <div className="border-t my-2"></div>
+                                          <p className="font-medium">
+                                            ML-powered query routing:
+                                          </p>
+                                          <p>
+                                            • DeepSeek Reasoner for complex
+                                            queries
+                                          </p>
+                                          <p>
+                                            • Llama 70B for moderate complexity
+                                          </p>
+                                          <p>• Llama 8B for simple queries</p>
+                                        </>
+                                      )}
+                                      {model !== "auto" && (
+                                        <>
+                                          <div className="border-t my-2"></div>
+                                          <p className="font-medium">
+                                            Pricing per 1M tokens:
+                                          </p>
+                                          <p>
+                                            Input (cached): $
+                                            {
+                                              modelConfigs[model].pricing
+                                                .inputTokensCached
+                                            }
+                                          </p>
+                                          <p>
+                                            Input: $
+                                            {
+                                              modelConfigs[model].pricing
+                                                .inputTokens
+                                            }
+                                          </p>
+                                          <p>
+                                            Output: $
+                                            {
+                                              modelConfigs[model].pricing
+                                                .outputTokens
+                                            }
+                                          </p>
+                                        </>
+                                      )}
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>

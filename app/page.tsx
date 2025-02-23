@@ -20,7 +20,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 
 const modelConfigs = {
   auto: {
-    name: "⭐ Auto Router",
+    name: "⭐ Auto Router (Uses ML to analyze query complexity and select the best model)",
     pricing: {
       inputTokensCached: 0,
       inputTokens: 0,
@@ -442,7 +442,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen max-h-screen overflow-hidden bg-background">
       <Header
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onNewChat={handleNewChat}
