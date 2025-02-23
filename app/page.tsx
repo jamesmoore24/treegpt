@@ -20,7 +20,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 
 const modelConfigs = {
   auto: {
-    name: "⭐ Auto Router (Uses ML to analyze query complexity and select the best model)",
+    name: "⭐ Auto Router",
     pricing: {
       inputTokensCached: 0,
       inputTokens: 0,
