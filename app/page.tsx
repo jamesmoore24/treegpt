@@ -76,7 +76,7 @@ export default function Home() {
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelType>("llama-3.1-8b");
+  const [selectedModel, setSelectedModel] = useState<ModelType>("auto");
   const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
     new Map()
   );
