@@ -6,7 +6,7 @@ on:
 
 env:
   EC2_PATH: "/var/www/treegpt" # Replace with your app's path on EC2
-  EC2_HOST: "18.234.204.117"
+  EC2_HOST: "34.201.54.167"
   EC2_USER: "ec2-user"
 
 jobs:
