@@ -35,6 +35,14 @@ const modelConfigs = {
       outputTokens: 0,
     },
   },
+  "llama-4-scout-17b-16e-instruct": {
+    name: "Llama 4 Scout (17B)",
+    pricing: {
+      inputTokensCached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  },
   "deepseek-chat": {
     name: "DeepSeek Chat",
     pricing: {
@@ -49,14 +57,6 @@ const modelConfigs = {
       inputTokensCached: 0.14,
       inputTokens: 0.55,
       outputTokens: 2.19,
-    },
-  },
-  auto: {
-    name: "Auto Router",
-    pricing: {
-      inputTokensCached: 0,
-      inputTokens: 0,
-      outputTokens: 0,
     },
   },
 } as const;
@@ -80,13 +80,68 @@ export default function Home() {
   const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
     new Map()
   );
+  const [autoRouteEnabled, setAutoRouteEnabled] = useState(false);
 
   useEffect(() => {
-    if (!initialized.current && chatHistory.length === 0) {
+    if (!initialized.current) {
+      const savedHistories = localStorage.getItem("chatHistories");
+      if (savedHistories) {
+        try {
+          const parsed = JSON.parse(savedHistories);
+          // Convert the plain objects back to Maps
+          const reconstructedHistories = parsed.map((history: any) => ({
+            ...history,
+            chatNodes: new Map(Object.entries(history.chatNodes)),
+            timestamp: new Date(history.timestamp),
+          }));
+          setChatHistory(reconstructedHistories);
+
+          // If there are saved histories, set the current chat to the most recent one
+          if (reconstructedHistories.length > 0) {
+            const mostRecent = reconstructedHistories[0];
+            setCurrentChatId(mostRecent.id);
+            setMessageContext(mostRecent.messageContext);
+            setChatNodes(mostRecent.chatNodes);
+          } else {
+            handleNewChat();
+          }
+        } catch (error) {
+          console.error("Error loading chat histories:", error);
+          handleNewChat();
+        }
+      } else {
+        handleNewChat();
+      }
       initialized.current = true;
-      handleNewChat();
     }
-  }, [chatHistory.length]);
+  }, []);
+
+  useEffect(() => {
+    if (initialized.current) {
+      // Convert Maps to plain objects for storage
+      const serializableHistories = chatHistory.map((history) => ({
+        ...history,
+        chatNodes: Object.fromEntries(history.chatNodes),
+        timestamp: history.timestamp.toISOString(),
+      }));
+      localStorage.setItem(
+        "chatHistories",
+        JSON.stringify(serializableHistories)
+      );
+    }
+  }, [chatHistory]);
+
+  useEffect(() => {
+    if (initialized.current && currentChatId) {
+      setChatHistory((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messageContext, chatNodes, timestamp: new Date() }
+            : chat
+        )
+      );
+    }
+  }, [messageContext, chatNodes, currentChatId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -250,6 +305,7 @@ export default function Home() {
             content: msg.content,
           })),
           model: selectedModel,
+          autoRouteEnabled,
         }),
       });
 
@@ -276,7 +332,7 @@ export default function Home() {
             const update = JSON.parse(line);
 
             // Handle model update from auto router
-            if (update.selectedModel && selectedModel === "auto") {
+            if (update.selectedModel && autoRouteEnabled) {
               // Update the node's model name with the actual selected model
               setChatNodes((prev) => {
                 const updated = new Map(prev);
@@ -382,6 +438,18 @@ export default function Home() {
   };
 
   const handleSelectChat = (id: string) => {
+    // Save current chat state before switching
+    if (currentChatId) {
+      setChatHistory((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messageContext, chatNodes, timestamp: new Date() }
+            : chat
+        )
+      );
+    }
+
+    // Switch to selected chat
     setCurrentChatId(id);
     const chat = chatHistory.find((c) => c.id === id);
     if (chat) {
@@ -479,6 +547,8 @@ export default function Home() {
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
           tokenUsage={tokenUsage}
+          autoRouteEnabled={autoRouteEnabled}
+          setAutoRouteEnabled={setAutoRouteEnabled}
         />
       </main>
     </div>

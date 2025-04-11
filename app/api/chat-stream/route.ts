@@ -11,16 +11,16 @@ export const dynamic = "force-dynamic";
 
 // Get the model config for the selected model
 const modelConfigs: Record<ModelType, string> = {
-  auto: "Auto Router",
   "llama-3.1-8b": "Llama 3.1 (8B)",
   "llama-3.3-70b": "Llama 3.3 (70B)",
+  "llama-4-scout-17b-16e-instruct": "Llama 4 Scout (17B)",
   "deepseek-chat": "DeepSeek Chat",
   "deepseek-reasoner": "DeepSeek Reasoner",
 };
 
 export async function POST(request: Request) {
   try {
-    const { messages, model } = await request.json();
+    const { messages, model, autoRouteEnabled } = await request.json();
 
     if (!Array.isArray(messages)) {
       return NextResponse.json(
@@ -41,10 +41,10 @@ export async function POST(request: Request) {
     let response: Stream<OpenAI.ChatCompletionChunk>;
     let modelInfo: ModelInfo;
     let isCached = false;
-    let selectedModel = model;
+    let selectedModel: ModelType = model as ModelType;
 
-    // Handle auto-routing
-    if (model === "auto") {
+    // Handle auto-routing if enabled
+    if (autoRouteEnabled) {
       try {
         const lastMessage = messages[messages.length - 1];
         const routerResponse = await fetch("http://localhost:8000/route", {
@@ -62,18 +62,18 @@ export async function POST(request: Request) {
         }
 
         const routerResult = await routerResponse.json();
-        const reasonerThreshold = 0.2;
-        const llamaThreshold = 0.11593;
+        const complexity = routerResult.win_rate;
 
+        // Use fixed thresholds to determine model
         selectedModel =
-          routerResult.win_rate > reasonerThreshold
+          complexity > 0.2
             ? "deepseek-reasoner"
-            : routerResult.win_rate > llamaThreshold
+            : complexity > 0.11593
             ? "llama-3.3-70b"
             : "llama-3.1-8b";
 
         console.log(
-          `Auto-routing selected model: ${selectedModel} (win_rate: ${routerResult.win_rate})`
+          `Auto-routing selected model: ${selectedModel} (complexity: ${complexity})`
         );
 
         // Send the selected model information in the first chunk
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
           selectedModel,
           content: "",
           modelInfo: {
-            name: modelConfigs[selectedModel as ModelType],
+            name: modelConfigs[selectedModel],
             usage: {
               inputTokens: 0,
               outputTokens: 0,
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
           selectedModel,
           content: "",
           modelInfo: {
-            name: modelConfigs[selectedModel as ModelType],
+            name: modelConfigs[selectedModel],
             usage: {
               inputTokens: 0,
               outputTokens: 0,
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       }
     }
 
-    switch (selectedModel as ModelType) {
+    switch (selectedModel) {
       case "deepseek-chat":
         const deepseekChat = getDeepSeekInstance();
         response = await deepseekChat.chat.completions.create({
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
           totalInputContent8b.length / 4
         );
         modelInfo = {
-          name: modelConfigs[selectedModel as ModelType],
+          name: modelConfigs[selectedModel],
           usage: {
             inputTokens: estimatedInputTokens8b,
             outputTokens: 0,
@@ -198,9 +198,37 @@ export async function POST(request: Request) {
           totalInputContent70b.length / 4
         );
         modelInfo = {
-          name: modelConfigs[selectedModel as ModelType],
+          name: modelConfigs[selectedModel],
           usage: {
             inputTokens: estimatedInputTokens70b,
+            outputTokens: 0,
+            cached: isCached,
+          },
+        };
+        break;
+
+      case "llama-4-scout-17b-16e-instruct":
+        const cerebrasScout = getCerebrasInstance();
+        response = (await cerebrasScout.chat.completions.create({
+          model: "llama-4-scout-17b-16e-instruct",
+          messages: messages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          temperature: 0.7,
+          stream: true,
+        })) as unknown as Stream<OpenAI.ChatCompletionChunk>;
+        const totalInputContentScout = messages.reduce(
+          (acc, msg) => acc + msg.content,
+          ""
+        );
+        const estimatedInputTokensScout = Math.ceil(
+          totalInputContentScout.length / 4
+        );
+        modelInfo = {
+          name: modelConfigs[selectedModel],
+          usage: {
+            inputTokens: estimatedInputTokensScout,
             outputTokens: 0,
             cached: isCached,
           },
@@ -231,7 +259,7 @@ export async function POST(request: Request) {
                 selectedModel,
                 content: "",
                 modelInfo: {
-                  name: modelConfigs[selectedModel as ModelType],
+                  name: modelConfigs[selectedModel],
                   usage: {
                     inputTokens: initialInputTokens,
                     outputTokens: 0,

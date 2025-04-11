@@ -18,6 +18,7 @@ export function GitHubStars() {
       .catch((error) => console.error("Error fetching GitHub stars:", error));
   }, []);
 
+  
   return (
     <TooltipProvider>
       <Tooltip>

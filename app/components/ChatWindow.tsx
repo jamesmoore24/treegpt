@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Command,
   CornerDownLeft,
+  HelpCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Controls, ReactFlowInstance } from "reactflow";
@@ -26,13 +27,14 @@ import { Tooltip } from "./ui/tooltip";
 import { ChatMessageWithChildren } from "./ChatMessageWithChildren";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
+import { Slider } from "./ui/slider";
 
 export type ModelType =
-  | "auto"
-  | "deepseek-chat"
-  | "deepseek-reasoner"
   | "llama-3.1-8b"
-  | "llama-3.3-70b";
+  | "llama-3.3-70b"
+  | "llama-4-scout-17b-16e-instruct"
+  | "deepseek-chat"
+  | "deepseek-reasoner";
 
 interface ModelConfig {
   name: string;
@@ -69,6 +71,8 @@ interface ChatWindowProps {
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
   tokenUsage: Map<string, TokenUsage>;
+  autoRouteEnabled: boolean;
+  setAutoRouteEnabled: (enabled: boolean) => void;
 }
 
 export function ChatWindow({
@@ -91,6 +95,8 @@ export function ChatWindow({
   selectedModel,
   onModelChange,
   tokenUsage,
+  autoRouteEnabled,
+  setAutoRouteEnabled,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageWindowRef = useRef<HTMLDivElement>(null);
@@ -103,6 +109,7 @@ export function ChatWindow({
   const [isDragging, setIsDragging] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [complexityThreshold, setComplexityThreshold] = useState(0.2);
 
   // Model configurations with detailed pricing
   const modelConfigs: Record<ModelType, ModelConfig> = {
@@ -116,6 +123,14 @@ export function ChatWindow({
     },
     "llama-3.3-70b": {
       name: "Llama 3.3 (70B)",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      },
+    },
+    "llama-4-scout-17b-16e-instruct": {
+      name: "Llama 4 Scout (17B)",
       pricing: {
         inputTokensCached: 0,
         inputTokens: 0,
@@ -136,14 +151,6 @@ export function ChatWindow({
         inputTokensCached: 0.14,
         inputTokens: 0.55,
         outputTokens: 2.19,
-      },
-    },
-    auto: {
-      name: "Auto Router",
-      pricing: {
-        inputTokensCached: 0,
-        inputTokens: 0,
-        outputTokens: 0,
       },
     },
   };
@@ -510,76 +517,128 @@ export function ChatWindow({
               <div className="flex items-center justify-between">
                 <div className="flex gap-4 items-center text-sm text-muted-foreground">
                   <div className="flex flex-col gap-2">
-                    <div className="relative">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => setModelMenuOpen(true)}
-                      >
-                        {selectedModel === "auto"
-                          ? "Auto Router"
-                          : modelConfigs[selectedModel].name}
-                        <ChevronUp
-                          className={cn(
-                            "ml-2 h-4 w-4",
-                            modelMenuOpen ? "rotate-180" : ""
-                          )}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 mr-2">
+                          <TooltipProvider>
+                            <Tooltip delayDuration={0}>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-4 w-4 p-0"
+                                >
+                                  <HelpCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                className="max-w-[300px] space-y-2"
+                              >
+                                <p className="font-medium">Auto Router</p>
+                                <p className="text-sm">
+                                  Automatically selects the best model based on
+                                  query complexity:
+                                </p>
+                                <ul className="text-sm list-disc pl-4">
+                                  <li>Simple queries → Llama 3.1 (8B)</li>
+                                  <li>Moderate complexity → Llama 3.3 (70B)</li>
+                                  <li>Complex queries → DeepSeek Reasoner</li>
+                                </ul>
+                                <p className="text-sm">
+                                  Moving the slider towards "Complex" will favor
+                                  more powerful models.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <Label htmlFor="auto-route" className="text-sm">
+                            Auto Router
+                          </Label>
+                        </div>
+                        <Switch
+                          id="auto-route"
+                          checked={autoRouteEnabled}
+                          onCheckedChange={setAutoRouteEnabled}
                         />
-                      </Button>
-                      {modelMenuOpen && (
-                        <div
-                          className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
-                          onMouseLeave={() => setModelMenuOpen(false)}
-                        >
-                          <div className="py-1" role="menu">
-                            {(Object.keys(modelConfigs) as ModelType[]).map(
-                              (model, index) => (
-                                <TooltipProvider key={model} delayDuration={0}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        className={cn(
-                                          "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
-                                          selectedModel === model
-                                            ? "bg-gray-50"
-                                            : ""
-                                        )}
-                                        role="menuitem"
-                                        onClick={() => {
-                                          onModelChange(model);
-                                          setModelMenuOpen(false);
-                                        }}
-                                      >
-                                        {modelConfigs[model].name}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                      side="left"
-                                      className="space-y-1"
+                      </div>
+                    </div>
+                    <div className="relative">
+                      {autoRouteEnabled ? (
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Complexity Threshold
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">Simple</span>
+                            <Slider
+                              value={[complexityThreshold]}
+                              onValueChange={([value]) => {
+                                setComplexityThreshold(value);
+                              }}
+                              min={0}
+                              max={1}
+                              step={0.01}
+                              className="w-32"
+                            />
+                            <span className="text-xs">Complex</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => setModelMenuOpen(true)}
+                          >
+                            {modelConfigs[selectedModel].name}
+                            <ChevronUp
+                              className={cn(
+                                "ml-2 h-4 w-4",
+                                modelMenuOpen ? "rotate-180" : ""
+                              )}
+                            />
+                          </Button>
+                          {modelMenuOpen && (
+                            <div
+                              className="absolute bottom-full mb-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+                              onMouseLeave={() => setModelMenuOpen(false)}
+                            >
+                              <div className="py-1" role="menu">
+                                {(Object.keys(modelConfigs) as ModelType[]).map(
+                                  (model, index) => (
+                                    <TooltipProvider
+                                      key={model}
+                                      delayDuration={0}
                                     >
-                                      <p className="font-medium">
-                                        Press <kbd>{index + 1}</kbd> to select
-                                      </p>
-                                      {model === "auto" && (
-                                        <>
-                                          <div className="border-t my-2"></div>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            className={cn(
+                                              "block w-full px-4 py-2 text-sm text-left hover:bg-gray-100",
+                                              selectedModel === model
+                                                ? "bg-gray-50"
+                                                : ""
+                                            )}
+                                            role="menuitem"
+                                            onClick={() => {
+                                              onModelChange(model);
+                                              setModelMenuOpen(false);
+                                            }}
+                                          >
+                                            {modelConfigs[model].name}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          side="left"
+                                          className="space-y-1"
+                                        >
                                           <p className="font-medium">
-                                            ML-powered query routing:
+                                            Press <kbd>{index + 1}</kbd> to
+                                            select
                                           </p>
-                                          <p>
-                                            • DeepSeek Reasoner for complex
-                                            queries
-                                          </p>
-                                          <p>
-                                            • Llama 70B for moderate complexity
-                                          </p>
-                                          <p>• Llama 8B for simple queries</p>
-                                        </>
-                                      )}
-                                      {model !== "auto" && (
-                                        <>
                                           <div className="border-t my-2"></div>
                                           <p className="font-medium">
                                             Pricing per 1M tokens:
@@ -605,15 +664,15 @@ export function ChatWindow({
                                                 .outputTokens
                                             }
                                           </p>
-                                        </>
-                                      )}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )
-                            )}
-                          </div>
-                        </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
