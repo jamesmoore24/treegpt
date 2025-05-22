@@ -33,6 +33,7 @@ export type ModelType =
   | "llama-3.1-8b"
   | "llama-3.3-70b"
   | "llama-4-scout-17b-16e-instruct"
+  | "qwen-3-32b"
   | "deepseek-chat"
   | "deepseek-reasoner";
 
@@ -131,6 +132,14 @@ export function ChatWindow({
     },
     "llama-4-scout-17b-16e-instruct": {
       name: "Llama 4 Scout (17B)",
+      pricing: {
+        inputTokensCached: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      },
+    },
+    "qwen-3-32b": {
+      name: "Qwen 3 (32B)",
       pricing: {
         inputTokensCached: 0,
         inputTokens: 0,

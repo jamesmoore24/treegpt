@@ -14,6 +14,7 @@ const modelConfigs: Record<ModelType, string> = {
   "llama-3.1-8b": "Llama 3.1 (8B)",
   "llama-3.3-70b": "Llama 3.3 (70B)",
   "llama-4-scout-17b-16e-instruct": "Llama 4 Scout (17B)",
+  "qwen-3-32b": "Qwen 3 (32B)",
   "deepseek-chat": "DeepSeek Chat",
   "deepseek-reasoner": "DeepSeek Reasoner",
 };
@@ -235,6 +236,34 @@ export async function POST(request: Request) {
         };
         break;
 
+      case "qwen-3-32b":
+        const cerebrasQwen = getCerebrasInstance();
+        response = (await cerebrasQwen.chat.completions.create({
+          model: "qwen-3-32b",
+          messages: messages.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          temperature: 0.7,
+          stream: true,
+        })) as unknown as Stream<OpenAI.ChatCompletionChunk>;
+        const totalInputContentQwen = messages.reduce(
+          (acc, msg) => acc + msg.content,
+          ""
+        );
+        const estimatedInputTokensQwen = Math.ceil(
+          totalInputContentQwen.length / 4
+        );
+        modelInfo = {
+          name: modelConfigs[selectedModel],
+          usage: {
+            inputTokens: estimatedInputTokensQwen,
+            outputTokens: 0,
+            cached: isCached,
+          },
+        };
+        break;
+
       default:
         return NextResponse.json(
           { error: "Invalid model specified" },
@@ -250,6 +279,10 @@ export async function POST(request: Request) {
         let reasoningTokens = 0;
         let reasoningContent = "";
         const initialInputTokens = modelInfo.usage.inputTokens;
+        let qwenReasoningActive = false;
+        let qwenReasoningBuffer = "";
+        let qwenReasoningLastPos = 0;
+        let qwenContentStarted = false;
 
         // Send the initial chunk with model information if auto-routing was used
         if (model === "auto") {
@@ -299,6 +332,102 @@ export async function POST(request: Request) {
                 }) + "\n"
               )
             );
+            continue;
+          }
+
+          // Stream Qwen <think> reasoning live, only new delta
+          if (selectedModel === "qwen-3-32b" && text) {
+            let remaining = text;
+            while (remaining.length > 0) {
+              if (!qwenReasoningActive) {
+                // Look for <think>
+                const thinkStart = remaining.indexOf("<think>");
+                if (thinkStart !== -1) {
+                  // Stream any content before <think> as content
+                  const before = remaining.slice(0, thinkStart);
+                  if (before) {
+                    controller.enqueue(
+                      encoder.encode(
+                        JSON.stringify({
+                          content: before,
+                          reasoning: null,
+                          modelInfo,
+                          model: modelInfo.name,
+                        }) + "\n"
+                      )
+                    );
+                  }
+                  qwenReasoningActive = true;
+                  remaining = remaining.slice(thinkStart + 7); // skip <think>
+                  qwenReasoningBuffer = "";
+                  qwenReasoningLastPos = 0;
+                  continue;
+                }
+              }
+              if (qwenReasoningActive) {
+                // Look for </think>
+                const thinkEnd = remaining.indexOf("</think>");
+                if (thinkEnd !== -1) {
+                  // Stream up to </think> as reasoning (only new part)
+                  qwenReasoningBuffer += remaining.slice(0, thinkEnd);
+                  const newReasoning =
+                    qwenReasoningBuffer.slice(qwenReasoningLastPos);
+                  if (newReasoning) {
+                    controller.enqueue(
+                      encoder.encode(
+                        JSON.stringify({
+                          content: "",
+                          reasoning: newReasoning,
+                          modelInfo,
+                          model: modelInfo.name,
+                        }) + "\n"
+                      )
+                    );
+                    qwenReasoningLastPos = qwenReasoningBuffer.length;
+                  }
+                  qwenReasoningActive = false;
+                  qwenContentStarted = true;
+                  remaining = remaining.slice(thinkEnd + 8); // skip </think>
+                  qwenReasoningBuffer = "";
+                  qwenReasoningLastPos = 0;
+                  continue;
+                } else {
+                  // All is reasoning (only new part)
+                  qwenReasoningBuffer += remaining;
+                  const newReasoning =
+                    qwenReasoningBuffer.slice(qwenReasoningLastPos);
+                  if (newReasoning) {
+                    controller.enqueue(
+                      encoder.encode(
+                        JSON.stringify({
+                          content: "",
+                          reasoning: newReasoning,
+                          modelInfo,
+                          model: modelInfo.name,
+                        }) + "\n"
+                      )
+                    );
+                    qwenReasoningLastPos = qwenReasoningBuffer.length;
+                  }
+                  break;
+                }
+              }
+              // If not in <think>, stream as content
+              if (!qwenReasoningActive && remaining.length > 0) {
+                controller.enqueue(
+                  encoder.encode(
+                    JSON.stringify({
+                      content: remaining,
+                      reasoning: null,
+                      modelInfo,
+                      model: modelInfo.name,
+                    }) + "\n"
+                  )
+                );
+                break;
+              }
+            }
+            continue;
           }
 
           // Handle regular content

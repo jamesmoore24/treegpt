@@ -43,6 +43,14 @@ const modelConfigs = {
       outputTokens: 0,
     },
   },
+  "qwen-3-32b": {
+    name: "Qwen 3 (32B)",
+    pricing: {
+      inputTokensCached: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  },
   "deepseek-chat": {
     name: "DeepSeek Chat",
     pricing: {
