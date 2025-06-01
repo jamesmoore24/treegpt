@@ -95,13 +95,22 @@ TreeGPT ([treegpt.app](https://treegpt.app)) is a new chat interface built for s
    - Node editing [e]
    - Node deletion [dd]
 
-3. **Advanced Architecture**
+3. **Model Selection Shortcuts**
+
+   - <kbd>1</kbd> - Select Llama 3.1 (8B)
+   - <kbd>2</kbd> - Select Llama 3.3 (70B)
+   - <kbd>3</kbd> - Select Llama 4 Scout (17B)
+   - <kbd>4</kbd> - Select Qwen 3 (32B)
+   - <kbd>5</kbd> - Select DeepSeek Chat
+   - <kbd>6</kbd> - Select DeepSeek Reasoner
+
+4. **Advanced Architecture**
 
    - Tree-based data modeling for efficient search and caching
    - LiteLLM integration for API and context management
    - Support for personal API keys or subscription-based usage
 
-4. **Multi-Model Support**
+5. **Multi-Model Support**
    - Connect to various LLM providers using your own API keys
    - Intelligent model routing between providers
    - Comparative testing of different models

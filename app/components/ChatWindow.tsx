@@ -398,9 +398,22 @@ export function ChatWindow({
       // Only handle model selection shortcuts when not in insert mode
       if (inInsertMode) return;
 
-      const modelKeys = Object.keys(modelConfigs) as ModelType[];
+      // Model selection shortcuts: 1-6
+      // 1: Llama 3.1 (8B)
+      // 2: Llama 3.3 (70B)
+      // 3: Llama 4 Scout (17B)
+      // 4: Qwen 3 (32B)
+      // 5: DeepSeek Chat
+      // 6: DeepSeek Reasoner
+      const modelKeys: ModelType[] = [
+        "llama-3.1-8b",
+        "llama-3.3-70b",
+        "llama-4-scout-17b-16e-instruct",
+        "qwen-3-32b",
+        "deepseek-chat",
+        "deepseek-reasoner",
+      ];
       const num = parseInt(e.key);
-
       if (!isNaN(num) && num >= 1 && num <= modelKeys.length) {
         const selectedModelKey = modelKeys[num - 1];
         onModelChange(selectedModelKey);
@@ -699,25 +712,6 @@ export function ChatWindow({
                           </span>
                           <span className="text-xs">
                             Next: ~{estimatedInputTokens} input tokens
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium">Cost</span>
-                    {(() => {
-                      const { totalCost } = getTotalUsageAndCost();
-                      const estimatedInputTokens = Math.ceil(input.length / 4);
-                      const estimatedNextCost =
-                        calculateEstimatedCost(estimatedInputTokens);
-                      return (
-                        <>
-                          <span className="text-xs">
-                            Total: ${totalCost.toFixed(6)}
-                          </span>
-                          <span className="text-xs">
-                            Est. Next: ${estimatedNextCost.toFixed(6)}
                           </span>
                         </>
                       );

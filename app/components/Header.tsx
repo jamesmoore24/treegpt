@@ -92,16 +92,22 @@ export function Header({
                     <h3 className="font-medium mb-2">Model Selection</h3>
                     <ul className="space-y-2">
                       <li>
-                        <kbd>1</kbd> - Select DeepSeek Chat
+                        <kbd>1</kbd> - Select Llama 3.1 (8B)
                       </li>
                       <li>
-                        <kbd>2</kbd> - Select DeepSeek Reasoner
+                        <kbd>2</kbd> - Select Llama 3.3 (70B)
                       </li>
                       <li>
-                        <kbd>3</kbd> - Select Llama 3.1 (8B)
+                        <kbd>3</kbd> - Select Llama 4 Scout (17B)
                       </li>
                       <li>
-                        <kbd>4</kbd> - Select Llama 3.3 (70B)
+                        <kbd>4</kbd> - Select Qwen 3 (32B)
+                      </li>
+                      <li>
+                        <kbd>5</kbd> - Select DeepSeek Chat
+                      </li>
+                      <li>
+                        <kbd>6</kbd> - Select DeepSeek Reasoner
                       </li>
                     </ul>
                   </div>
