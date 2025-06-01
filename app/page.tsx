@@ -6,7 +6,6 @@ import { Button } from "@/app/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OnboardingModal } from "@/app/components/OnboardingModal";
-import { ChatMessage } from "@/app/components/ChatMessage";
 import { ChatSidebar } from "@/app/components/ChatSidebar";
 import { Header } from "@/app/components/Header";
 import { ChatHistory, Message } from "@/types/chat";
