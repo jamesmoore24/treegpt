@@ -262,6 +262,8 @@ export default function Home() {
     setIsLoadingFirstToken(true);
     setInput("");
 
+    console.log(`[handleSubmit] pdfText length=${pdfText?.length ?? 0} pdfName=${pdfName}`);
+
     // Create messages array for API call — append PDF content to last user message if provided
     const lastContent = pdfText
       ? `${input}\n\n[Attached PDF Content]\n${pdfText}`
