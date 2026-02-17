@@ -19,4 +19,5 @@ export type ChatNode = {
   query: string;
   response: string;
   model?: string;
+  pdfName?: string;
 };

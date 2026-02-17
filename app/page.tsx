@@ -5,7 +5,7 @@ import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OnboardingModal } from "@/app/components/OnboardingModal";
+import { SignInModal } from "@/app/components/SignInModal";
 import { ChatSidebar } from "@/app/components/ChatSidebar";
 import { Header } from "@/app/components/Header";
 import { ChatHistory, Message } from "@/types/chat";
@@ -16,60 +16,55 @@ import { ChatNode } from "@/types/chat";
 import { ModelType } from "@/app/components/ChatWindow";
 import { TokenUsage } from "@/types/tokenUsage";
 import { Textarea } from "@/app/components/ui/textarea";
+import { useAuth } from "@/app/components/AuthProvider";
+import { createClient } from "@/lib/supabase/client";
 
 const modelConfigs = {
-  "llama-3.1-8b": {
-    name: "Llama 3.1 (8B)",
+  "llama3.1-8b": {
+    name: "Llama 3.1 8B",
     pricing: {
       inputTokensCached: 0,
-      inputTokens: 0,
-      outputTokens: 0,
+      inputTokens: 0.10,
+      outputTokens: 0.10,
     },
   },
-  "llama-3.3-70b": {
-    name: "Llama 3.3 (70B)",
+  "gpt-oss-120b": {
+    name: "GPT OSS 120B",
     pricing: {
       inputTokensCached: 0,
-      inputTokens: 0,
-      outputTokens: 0,
+      inputTokens: 0.35,
+      outputTokens: 0.75,
     },
   },
-  "llama-4-scout-17b-16e-instruct": {
-    name: "Llama 4 Scout (17B)",
+  "qwen-3-235b-a22b-instruct-2507": {
+    name: "Qwen 3 235B",
     pricing: {
       inputTokensCached: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-    },
-  },
-  "qwen-3-32b": {
-    name: "Qwen 3 (32B)",
-    pricing: {
-      inputTokensCached: 0,
-      inputTokens: 0,
-      outputTokens: 0,
+      inputTokens: 0.60,
+      outputTokens: 1.20,
     },
   },
   "deepseek-chat": {
-    name: "DeepSeek Chat",
+    name: "DeepSeek V3",
     pricing: {
-      inputTokensCached: 0.014,
-      inputTokens: 0.14,
-      outputTokens: 0.28,
+      inputTokensCached: 0.028,
+      inputTokens: 0.28,
+      outputTokens: 0.42,
     },
   },
   "deepseek-reasoner": {
     name: "DeepSeek Reasoner",
     pricing: {
-      inputTokensCached: 0.14,
-      inputTokens: 0.55,
-      outputTokens: 2.19,
+      inputTokensCached: 0.028,
+      inputTokens: 0.28,
+      outputTokens: 0.42,
     },
   },
 } as const;
 
 export default function Home() {
-  const [step, setStep] = useState(1);
+  const { user, loading: authLoading } = useAuth();
+  const supabase = createClient();
   const [messageContext, setMessageContext] = useState<string[]>([]);
   const [chatNodes, setChatNodes] = useState<Map<string, ChatNode>>(new Map());
   const [currentChatNode, setCurrentChatNode] = useState<ChatNode | null>(null);
@@ -83,60 +78,59 @@ export default function Home() {
   const [isLoadingFirstToken, setIsLoadingFirstToken] = useState(false);
   const initialized = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelType>("llama-3.1-8b");
+  const [selectedModel, setSelectedModel] = useState<ModelType>("llama3.1-8b");
   const [tokenUsage, setTokenUsage] = useState<Map<string, TokenUsage>>(
     new Map()
   );
-  const [autoRouteEnabled, setAutoRouteEnabled] = useState(false);
+  const [rlmMode, setRlmMode] = useState(false);
 
+  // Load chats from Supabase when user is authenticated
   useEffect(() => {
-    if (!initialized.current) {
-      const savedHistories = localStorage.getItem("chatHistories");
-      if (savedHistories) {
-        try {
-          const parsed = JSON.parse(savedHistories);
-          // Convert the plain objects back to Maps
-          const reconstructedHistories = parsed.map((history: any) => ({
-            ...history,
-            chatNodes: new Map(Object.entries(history.chatNodes)),
-            timestamp: new Date(history.timestamp),
-          }));
-          setChatHistory(reconstructedHistories);
+    if (!user || initialized.current) return;
+    initialized.current = true;
 
-          // If there are saved histories, set the current chat to the most recent one
-          if (reconstructedHistories.length > 0) {
-            const mostRecent = reconstructedHistories[0];
-            setCurrentChatId(mostRecent.id);
-            setMessageContext(mostRecent.messageContext);
-            setChatNodes(mostRecent.chatNodes);
-          } else {
-            handleNewChat();
-          }
-        } catch (error) {
-          console.error("Error loading chat histories:", error);
-          handleNewChat();
-        }
-      } else {
+    const loadChats = async () => {
+      const { data: chatsData, error } = await supabase
+        .from("chats")
+        .select("*, chat_nodes(*)")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
+
+      if (error || !chatsData || chatsData.length === 0) {
         handleNewChat();
+        return;
       }
-      initialized.current = true;
-    }
-  }, []);
 
-  useEffect(() => {
-    if (initialized.current) {
-      // Convert Maps to plain objects for storage
-      const serializableHistories = chatHistory.map((history) => ({
-        ...history,
-        chatNodes: Object.fromEntries(history.chatNodes),
-        timestamp: history.timestamp.toISOString(),
-      }));
-      localStorage.setItem(
-        "chatHistories",
-        JSON.stringify(serializableHistories)
-      );
-    }
-  }, [chatHistory]);
+      const reconstructed: ChatHistory[] = chatsData.map((chat: any) => {
+        const nodesMap = new Map<string, ChatNode>();
+        (chat.chat_nodes || []).forEach((n: any) => {
+          nodesMap.set(n.id, {
+            id: n.id,
+            parentId: n.parent_id,
+            children: n.children || [],
+            query: n.query,
+            response: n.response,
+            model: n.model,
+          });
+        });
+        return {
+          id: chat.id,
+          title: chat.title,
+          timestamp: new Date(chat.updated_at),
+          messageContext: chat.message_context || [],
+          chatNodes: nodesMap,
+        };
+      });
+
+      setChatHistory(reconstructed);
+      const most = reconstructed[0];
+      setCurrentChatId(most.id);
+      setMessageContext(most.messageContext);
+      setChatNodes(most.chatNodes);
+    };
+
+    loadChats();
+  }, [user]);
 
   useEffect(() => {
     if (initialized.current && currentChatId) {
@@ -147,6 +141,14 @@ export default function Home() {
             : chat
         )
       );
+      // Persist message_context to Supabase
+      if (user) {
+        supabase
+          .from("chats")
+          .update({ message_context: messageContext, updated_at: new Date().toISOString() })
+          .eq("id", currentChatId)
+          .then(() => {});
+      }
     }
   }, [messageContext, chatNodes, currentChatId]);
 
@@ -212,20 +214,28 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [inInsertMode, currentChatNode, chatNodes, messageContext]);
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
+    const newId = crypto.randomUUID();
     const newChat: ChatHistory = {
-      id: crypto.randomUUID(),
+      id: newId,
       title: "New Chat",
       timestamp: new Date(),
       messageContext: [],
       chatNodes: new Map(),
     };
     setChatHistory((prev) => [newChat, ...prev]);
-    setCurrentChatId(newChat.id);
+    setCurrentChatId(newId);
     setMessageContext([]);
     setChatNodes(new Map());
 
-    //TODO: Create new chat object in database
+    if (user) {
+      await supabase.from("chats").insert({
+        id: newId,
+        user_id: user.id,
+        title: "New Chat",
+        message_context: [],
+      });
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -244,7 +254,7 @@ export default function Home() {
     setCurrentChatNode(lastNode || null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, pdfText?: string, pdfName?: string) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
@@ -252,7 +262,10 @@ export default function Home() {
     setIsLoadingFirstToken(true);
     setInput("");
 
-    // Create messages array for API call
+    // Create messages array for API call — append PDF content to last user message if provided
+    const lastContent = pdfText
+      ? `${input}\n\n[Attached PDF Content]\n${pdfText}`
+      : input;
     const newMessages = [
       ...messageContext.flatMap((nodeId) => {
         const node = chatNodes.get(nodeId);
@@ -262,7 +275,7 @@ export default function Home() {
           { content: node.response, isUser: false },
         ];
       }),
-      { content: input, isUser: true },
+      { content: lastContent, isUser: true },
     ];
 
     const newChatNodeID = `${currentChatId}-${chatNodes.size}`;
@@ -278,6 +291,7 @@ export default function Home() {
       query: input,
       response: "",
       model: modelConfigs[selectedModel].name,
+      pdfName,
     };
 
     // Initialize the node in chatNodes
@@ -299,6 +313,20 @@ export default function Home() {
       return updated;
     });
 
+    // Persist new node to Supabase
+    if (user) {
+      await supabase.from("chat_nodes").insert({
+        id: newChatNodeID,
+        chat_id: currentChatId,
+        user_id: user.id,
+        parent_id: newNode.parentId,
+        children: [],
+        query: newNode.query,
+        response: "",
+        model: newNode.model,
+      });
+    }
+
     // Update messageContext with the new node's ID
     setMessageContext([...messageContext, newNode.id]);
 
@@ -312,7 +340,6 @@ export default function Home() {
             content: msg.content,
           })),
           model: selectedModel,
-          autoRouteEnabled,
         }),
       });
 
@@ -337,24 +364,6 @@ export default function Home() {
         for (const line of lines) {
           try {
             const update = JSON.parse(line);
-
-            // Handle model update from auto router
-            if (update.selectedModel && autoRouteEnabled) {
-              // Update the node's model name with the actual selected model
-              setChatNodes((prev) => {
-                const updated = new Map(prev);
-                const nodeToUpdate = updated.get(newChatNodeID);
-                if (nodeToUpdate) {
-                  updated.set(newChatNodeID, {
-                    ...nodeToUpdate,
-                    model: `Auto Router (${
-                      modelConfigs[update.selectedModel as ModelType].name
-                    })`,
-                  });
-                }
-                return updated;
-              });
-            }
 
             // Handle reasoning content
             if (update.reasoning) {
@@ -414,8 +423,26 @@ export default function Home() {
 
       setIsLoading(false);
 
-      // Generate summary for first message
-      if (currentChatId && messageContext.length === 0) {
+      // Persist completed response to Supabase
+      if (user) {
+        await supabase
+          .from("chat_nodes")
+          .update({ response: fullResponse })
+          .eq("id", newChatNodeID);
+        // Update parent's children array in Supabase
+        if (newNode.parentId) {
+          const parentNode = chatNodes.get(newNode.parentId);
+          if (parentNode) {
+            await supabase
+              .from("chat_nodes")
+              .update({ children: [...parentNode.children, newChatNodeID] })
+              .eq("id", newNode.parentId);
+          }
+        }
+      }
+
+      // Update chat title after every message
+      if (currentChatId) {
         try {
           const summaryResponse = await fetch("/api/chat-summary", {
             method: "POST",
@@ -433,6 +460,12 @@ export default function Home() {
                 chat.id === currentChatId ? { ...chat, title: summary } : chat
               )
             );
+            if (user) {
+              await supabase
+                .from("chats")
+                .update({ title: summary })
+                .eq("id", currentChatId);
+            }
           }
         } catch (error) {
           console.error("Error generating summary:", error);
@@ -516,6 +549,14 @@ export default function Home() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen max-h-screen overflow-hidden bg-background">
       <Header
@@ -524,7 +565,7 @@ export default function Home() {
         queriesLeft={queriesLeft}
         isSidebarOpen={isSidebarOpen}
       />
-      <OnboardingModal step={step} onStepChange={setStep} />
+      {!user && <SignInModal />}
       <main className="flex-1 flex">
         <ChatSidebar
           isOpen={isSidebarOpen}
@@ -554,8 +595,8 @@ export default function Home() {
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
           tokenUsage={tokenUsage}
-          autoRouteEnabled={autoRouteEnabled}
-          setAutoRouteEnabled={setAutoRouteEnabled}
+          rlmMode={rlmMode}
+          onToggleRlmMode={() => setRlmMode((v) => !v)}
         />
       </main>
     </div>
