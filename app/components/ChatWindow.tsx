@@ -299,9 +299,12 @@ export function ChatWindow({
   const [rlmRuns, setRlmRuns] = useState<RLMRun[]>([]);
   const [rlmInput, setRlmInput] = useState("");
   const [rlmIsLoading, setRlmIsLoading] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [pdfText, setPdfText] = useState("");
-  const [pdfLoading, setPdfLoading] = useState(false);
+
+  interface PdfAttachment { id: string; file: File; text: string; loading: boolean; }
+  const [pdfAttachments, setPdfAttachments] = useState<PdfAttachment[]>([]);
+  const pdfLoading = pdfAttachments.some((a) => a.loading);
+  const combinedPdfText = pdfAttachments.filter((a) => a.text).map((a) => `[PDF: ${a.file.name}]\n${a.text}`).join("\n\n---\n\n");
+  const combinedPdfName = pdfAttachments.map((a) => a.file.name).join(", ");
 
   const modelConfigs: Record<ModelType, ModelConfig> = {
     "llama3.1-8b": { name: "Llama 3.1 8B", pricing: { inputTokensCached: 0, inputTokens: 0.10, outputTokens: 0.10 } },
@@ -562,10 +565,9 @@ export function ChatWindow({
           if (rlmInput.trim() && !rlmIsLoading) handleRlmSubmit();
         } else {
           if (input.trim() && !isLoading) {
-            const ctx = pdfText || undefined;
-            const name = pdfFile?.name;
-            setPdfFile(null);
-            setPdfText("");
+            const ctx = combinedPdfText || undefined;
+            const name = combinedPdfName || undefined;
+            setPdfAttachments([]);
             onSubmit(e as unknown as React.FormEvent, ctx, name);
           }
         }
@@ -578,25 +580,22 @@ export function ChatWindow({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onModelChange, inInsertMode, input, isLoading, onSubmit, rlmMode, rlmInput, rlmIsLoading, pdfText, setPdfFile, setPdfText]);
+  }, [onModelChange, inInsertMode, input, isLoading, onSubmit, rlmMode, rlmInput, rlmIsLoading, combinedPdfText, combinedPdfName]);
 
   // ─── RLM logic ──────────────────────────────────────────────────────────────
 
   const handlePdfSelect = async (file: File) => {
-    setPdfFile(file);
-    setPdfLoading(true);
+    const id = crypto.randomUUID();
+    setPdfAttachments((prev) => [...prev, { id, file, text: "", loading: true }]);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/pdf-extract", { method: "POST", body: fd });
       const { text, error } = await res.json();
       if (error) throw new Error(error);
-      setPdfText(text);
+      setPdfAttachments((prev) => prev.map((a) => a.id === id ? { ...a, text, loading: false } : a));
     } catch {
-      // Keep pdfFile set so the chip stays visible; pdfText stays empty to indicate failure
-      setPdfText("");
-    } finally {
-      setPdfLoading(false);
+      setPdfAttachments((prev) => prev.map((a) => a.id === id ? { ...a, loading: false } : a));
     }
   };
 
@@ -661,11 +660,10 @@ export function ChatWindow({
     if (!rlmInput.trim() || rlmIsLoading) return;
     const runId = crypto.randomUUID();
     const prompt = rlmInput.trim();
-    const submittedPdfName = pdfFile?.name;
-    const submittedPdfText = pdfText;
+    const submittedPdfName = combinedPdfName || undefined;
+    const submittedPdfText = combinedPdfText;
     setRlmInput("");
-    setPdfFile(null);
-    setPdfText("");
+    setPdfAttachments([]);
     setRlmIsLoading(true);
 
     setRlmRuns((prev) => [...prev, {
@@ -735,7 +733,7 @@ export function ChatWindow({
         {/* ── Left pane ── */}
         <div
           style={{ width: isSmallScreen ? "100%" : `${splitPosition}%`, height: isSmallScreen ? `${splitPosition}%` : "100%" }}
-          className="flex flex-col"
+          className="flex flex-col min-w-0 overflow-hidden"
         >
           {rlmMode ? (
             /* RLM run list */
@@ -786,34 +784,35 @@ export function ChatWindow({
                 if (rlmMode) {
                   handleRlmSubmit();
                 } else {
-                  const ctx = pdfText || undefined;
-                  const name = pdfFile?.name;
-                  setPdfFile(null);
-                  setPdfText("");
+                  const ctx = combinedPdfText || undefined;
+                  const name = combinedPdfName || undefined;
+                  setPdfAttachments([]);
                   onSubmit(e, ctx, name);
                 }
               }}
               className="p-4 flex flex-col gap-3"
             >
-              {pdfFile && (
-                <div className="flex items-center gap-2 px-1">
-                  <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs">
-                    <Paperclip className="h-3.5 w-3.5 text-violet-600 shrink-0" />
-                    <span className="text-muted-foreground truncate max-w-[200px]">{pdfFile.name}</span>
-                    {pdfLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                    {!pdfLoading && (
-                      <span className="text-muted-foreground/60 shrink-0">
-                        {(pdfText.length / 1000).toFixed(0)}k chars
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => { setPdfFile(null); setPdfText(""); }}
-                      className="shrink-0 text-muted-foreground hover:text-foreground ml-1"
-                    >
-                      ×
-                    </button>
-                  </div>
+              {pdfAttachments.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 px-1">
+                  {pdfAttachments.map((att) => (
+                    <div key={att.id} className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs">
+                      <Paperclip className="h-3.5 w-3.5 text-violet-600 shrink-0" />
+                      <span className="text-muted-foreground truncate max-w-[200px]">{att.file.name}</span>
+                      {att.loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+                      {!att.loading && (
+                        <span className="text-muted-foreground/60 shrink-0">
+                          {(att.text.length / 1000).toFixed(0)}k chars
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPdfAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                        className="shrink-0 text-muted-foreground hover:text-foreground ml-1"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="flex items-center gap-2">
@@ -832,16 +831,14 @@ export function ChatWindow({
                         onClick={() => fileInputRef.current?.click()}
                         className={cn(
                           "shrink-0 flex items-center text-muted-foreground hover:text-foreground",
-                          pdfFile && "text-violet-600 hover:text-violet-700"
+                          pdfAttachments.length > 0 && "text-violet-600 hover:text-violet-700"
                         )}
                       >
-                        {pdfLoading
-                          ? <Loader2 className="h-4 w-4 animate-spin" />
-                          : <Paperclip className="h-4 w-4" />}
+                        <Paperclip className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{pdfFile ? pdfFile.name : "Attach PDF as context"}</p>
+                      <p>Attach PDF as context</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -925,7 +922,16 @@ export function ChatWindow({
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={onToggleRlmMode}
+                            onClick={() => {
+                              if (!rlmMode) {
+                                // entering RLM: carry normal input over
+                                setRlmInput(input);
+                              } else {
+                                // leaving RLM: carry rlmInput back to normal input
+                                onInputChange({ target: { value: rlmInput } } as React.ChangeEvent<HTMLTextAreaElement>);
+                              }
+                              onToggleRlmMode?.();
+                            }}
                             className={cn(
                               "h-8 gap-1.5 text-xs font-medium",
                               rlmMode

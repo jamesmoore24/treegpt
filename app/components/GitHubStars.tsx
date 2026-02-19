@@ -12,9 +12,9 @@ export function GitHubStars() {
   const [stars, setStars] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/jamesmoore24/treegpt/stargazers")
+    fetch("https://api.github.com/repos/jamesmoore24/treegpt")
       .then((res) => res.json())
-      .then((data) => setStars(data.length))
+      .then((data) => setStars(data.stargazers_count))
       .catch((error) => console.error("Error fetching GitHub stars:", error));
   }, []);
 

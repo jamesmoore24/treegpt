@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Plus, HelpCircle } from "lucide-react";
+import { Menu, Plus, HelpCircle, LogOut } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { LivesCounter } from "@/app/components/LivesCounter";
 import { cn } from "@/lib/utils";
@@ -17,14 +17,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
-import { ThemeToggle } from "./ThemeToggle";
 import { GitHubStars } from "./GitHubStars";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { User } from "@supabase/supabase-js";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
   onNewChat: () => void;
   queriesLeft: number;
   isSidebarOpen: boolean;
+  user: User | null;
+  onSignOut: () => void;
 }
 
 export function Header({
@@ -32,8 +42,14 @@ export function Header({
   onNewChat,
   queriesLeft,
   isSidebarOpen,
+  user,
+  onSignOut,
 }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+
+  const avatarUrl = user?.user_metadata?.avatar_url;
+  const displayName = user?.user_metadata?.full_name || user?.email;
+  const email = user?.email;
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between w-full h-12 px-4 border-b bg-background">
@@ -130,7 +146,62 @@ export function Header({
             </DialogHeader>
           </DialogContent>
         </Dialog>
-        <ThemeToggle />
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="h-8 w-8 rounded-full overflow-hidden border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName || "User"}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
+                    {(displayName || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  {displayName && (
+                    <p className="text-sm font-medium leading-none">{displayName}</p>
+                  )}
+                  {email && (
+                    <p className="text-xs leading-none text-muted-foreground">{email}</p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="cursor-pointer"
+              >
+                <SunIcon className="mr-2 h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
+                <MoonIcon className="absolute ml-0 h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100" />
+                <span className="ml-6">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onSignOut} className="cursor-pointer text-red-600 dark:text-red-400">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="h-8 w-8"
+          >
+            <SunIcon className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <MoonIcon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </Button>
+        )}
       </div>
     </header>
   );

@@ -1,6 +1,7 @@
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { ThemeProvider } from "@/app/components/theme-provider";
+import { AuthProvider } from "@/app/components/AuthProvider";
 import { Toaster } from "@/app/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { Inter } from "next/font/google";
@@ -38,7 +39,9 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

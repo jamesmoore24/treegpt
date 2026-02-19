@@ -63,7 +63,7 @@ const modelConfigs = {
 } as const;
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const supabase = createClient();
   const [messageContext, setMessageContext] = useState<string[]>([]);
   const [chatNodes, setChatNodes] = useState<Map<string, ChatNode>>(new Map());
@@ -261,6 +261,8 @@ export default function Home() {
     setIsLoading(true);
     setIsLoadingFirstToken(true);
     setInput("");
+
+    console.log(`[handleSubmit] pdfText length=${pdfText?.length ?? 0} pdfName=${pdfName}`);
 
     // Create messages array for API call — append PDF content to last user message if provided
     const lastContent = pdfText
@@ -477,6 +479,28 @@ export default function Home() {
     }
   };
 
+  const handleDeleteChat = async (id: string) => {
+    setChatHistory((prev) => prev.filter((c) => c.id !== id));
+
+    if (user) {
+      await supabase.from("chat_nodes").delete().eq("chat_id", id);
+      await supabase.from("chats").delete().eq("id", id);
+    }
+
+    // If the deleted chat was active, switch to the next available one or create new
+    if (currentChatId === id) {
+      const remaining = chatHistory.filter((c) => c.id !== id);
+      if (remaining.length > 0) {
+        const next = remaining[0];
+        setCurrentChatId(next.id);
+        setMessageContext(next.messageContext);
+        setChatNodes(next.chatNodes);
+      } else {
+        handleNewChat();
+      }
+    }
+  };
+
   const handleSelectChat = (id: string) => {
     // Save current chat state before switching
     if (currentChatId) {
@@ -564,6 +588,8 @@ export default function Home() {
         onNewChat={handleNewChat}
         queriesLeft={queriesLeft}
         isSidebarOpen={isSidebarOpen}
+        user={user}
+        onSignOut={signOut}
       />
       {!user && <SignInModal />}
       <main className="flex-1 flex">
@@ -573,6 +599,7 @@ export default function Home() {
           onNewChat={handleNewChat}
           history={chatHistory}
           onSelectChat={handleSelectChat}
+          onDeleteChat={handleDeleteChat}
           currentChatId={currentChatId}
         />
         <ChatWindow

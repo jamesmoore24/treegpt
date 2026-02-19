@@ -156,18 +156,20 @@ export function ChatMessageWithChildren({
         }}
       >
         <div className="space-y-4">
-          {node.pdfName && (
-            <div className="flex items-center gap-1.5 self-start rounded-md border border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800 px-2 py-1 text-xs text-violet-700 dark:text-violet-300">
-              <Paperclip className="h-3 w-3 shrink-0" />
-              <span className="truncate max-w-[200px]">{node.pdfName}</span>
-            </div>
-          )}
-          <ChatMessage
-            message={{ content: node.query, isUser: true }}
-            isSelected={currentChatNode?.id === nodeId}
-            isRecent={isLastNode}
-            inInsertMode={inInsertMode}
-          />
+          <div className="flex flex-col items-end gap-1">
+            {node.pdfName && (
+              <div className="flex items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800 px-2 py-1 text-xs text-violet-700 dark:text-violet-300">
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <span className="truncate max-w-[200px]">{node.pdfName}</span>
+              </div>
+            )}
+            <ChatMessage
+              message={{ content: node.query, isUser: true }}
+              isSelected={currentChatNode?.id === nodeId}
+              isRecent={isLastNode}
+              inInsertMode={inInsertMode}
+            />
+          </div>
           <ChatMessage
             message={{
               ...parseResponse(node.response),

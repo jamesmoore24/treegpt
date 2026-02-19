@@ -285,7 +285,7 @@ export function ChatMessage({
               Reasoning Process
             </button>
             {showReasoning && (
-              <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-3 border border-muted-foreground/10">
+              <div className="text-sm text-muted-foreground/70 bg-muted-foreground/5 rounded-md p-3 border border-muted-foreground/10 overflow-x-auto">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
