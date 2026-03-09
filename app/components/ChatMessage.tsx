@@ -93,7 +93,7 @@ const MarkdownComponents: Record<string, ComponentType<any>> = {
   },
   p({ children, ...props }) {
     return (
-      <p className="mb-2 last:mb-0" {...props}>
+      <p className="mb-2 last:mb-0 mr-0" {...props}>
         {children}
       </p>
     );
@@ -258,7 +258,7 @@ export function ChatMessage({
     >
       <div
         className={cn(
-          "max-w-[80%] rounded-lg p-3",
+          "max-w-[80%] rounded-lg px-6 py-3",
           message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
         )}
       >
@@ -301,16 +301,19 @@ export function ChatMessage({
         )}
         <div
           className={cn(
+            "break-words overflow-hidden",
             message.reasoning ? "border-t pt-3 border-muted-foreground/10" : ""
           )}
         >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={MarkdownComponents}
-          >
-            {isExpanded ? message.content : getPreviewContent(message.content)}
-          </ReactMarkdown>
+          <div className="[&>p]:m-0">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={MarkdownComponents}
+            >
+              {isExpanded ? message.content : getPreviewContent(message.content)}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     </div>
